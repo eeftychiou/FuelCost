@@ -109,12 +109,12 @@ def loadPickle(year, month):
 # SafBlendingMandate = 0.02
 # **************************************** #
 
-def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.02 ):
+def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.00 ):
 
     flights_df['SAF_COST'] = flights_df['FUEL'] * safBlendingMandate * costOfSafFuelPerKg
     return flights_df
 
-def CalculateFuelCost(flights_df, costOfJetFuelPerKg = 0.61, safBlendingMandate = 0.02 ):
+def CalculateFuelCost(flights_df, costOfJetFuelPerKg = 0.81, safBlendingMandate = 0.00 ):
     flights_df['FUEL_COST'] = flights_df['FUEL']*(1-safBlendingMandate) * costOfJetFuelPerKg
     return flights_df
 
@@ -149,7 +149,7 @@ def getIATASeasons(setyear):
     return startSummer, endSummer
 
 
-def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 2.15 , blendingMandate=0.02 ):
+def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=0.00 ):
     # *************************************************** #
     # Constants for Fuel TAX Calculations
     # all prices are in Euros/GJ
