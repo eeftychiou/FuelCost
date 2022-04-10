@@ -362,14 +362,14 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
 
 def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap_df):
 
-    #gdp_df = gdp_df.loc[gdp_df['ADEP_COUNTRY'].isin(SelectedOptions)]
+    gdp_df = gdp_df.loc[gdp_df['ADEP'].isin(SelectedOptions)]
     cost_df = cost_df.loc[cost_df['ADEP'].isin(SelectedOptions)]
 
     colset=set(SelectedOptions)
     dffcols = set(heatmap_df.columns)
     finalCols = list(colset.intersection(dffcols))
     heatmap_df = heatmap_df.loc[:,finalCols]
-    heatmap_df = heatmap_df.dropna(axis=1)
+    #heatmap_df = heatmap_df.dropna(axis=1)
 
 
 
@@ -421,6 +421,53 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
     fig = go.Figure(data=data, layout=layout)
     fig.update_yaxes(title_text='USD per Flight')
 
+
+    gdp_df = gdp_df.sort_values(by=['TOTAL_COST_mean'], ascending=False)
+
+    dataGDP = [
+        go.Bar(name='SAF',
+               x=gdp_df['ADEP'],
+               y=gdp_df['SAF_COST_mean'],
+               # error_y=dict(type='data', array=per_ms_Annual_out['SAF_COST_std'].to_list()), text=per_ms_Annual_out['SAF_COST_mean']
+               width=0.4,
+               offset=-0.4,
+               offsetgroup=1
+               ),
+        go.Bar(name='TAX',
+               x=gdp_df['ADEP'],
+               y=gdp_df['TAX_COST_mean'],
+               width=0.4,
+               offset=-0.4,
+               offsetgroup=1
+               ),
+        go.Bar(name='ETS',
+               x=gdp_df['ADEP'],
+               y=gdp_df['ETS_COST_mean'],
+               width=0.4,
+               offset=-0.4,
+               offsetgroup=1
+               ),
+        go.Bar(name='Total Ratio of Measures',
+               x=gdp_df['ADEP'],
+               y=gdp_df['TOTAL_COST_mean'], visible='legendonly',
+               width=0.4,
+               offset=0.0,
+               base=0,
+               offsetgroup=1
+               )
+    ]
+
+
+    layout = go.Layout(title='Ratio of Selected Flights with allflights per Airport',
+                       yaxis=dict(title='Ratio'),
+                        barmode='stack',
+                       legend = dict(yanchor="top", y=0.99, xanchor="right",x=1.21)
+    )
+
+
+    figGDP= go.Figure(data=dataGDP, layout= layout)
+
+
     #update table
     _col=[{"name": i, "id": i} for i in cost_df.columns]
     datatab=cost_df.to_dict('records')
@@ -432,49 +479,59 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
     figPairs = px.imshow(heatmap_df, labels=dict(x="Destination Airport", y='Departure Airport', color='Number of Flights'))
 
     figPairs.update_layout(title="Number of flights between Airports",
-                           width=1000,
+                           width=2000,
                            height=1000,
                            xaxis={"tickangle": 45}, )
 
-    return fig, go.Figure(data=[go.Scatter(x=[], y=[])]), figPairs, datatab, _col
+    return fig, figGDP, figPairs, datatab, _col
 
-def update_per_operator(fromSel, gdpPerCountry, groupSel, per_ms_Annual_out):
+def update_per_operator(SelectedOptions, gdp_df, groupSel, cost_df, heatmap_df):
+    #SelectedOptions, gdp_df, groupSelection, cost_df, heatmap_df
+    gdp_df = gdp_df.loc[gdp_df['ADEP'].isin(SelectedOptions)]
+    cost_df = cost_df.loc[cost_df['ADEP'].isin(SelectedOptions)]
+
+    colset=set(SelectedOptions)
+    dffcols = set(heatmap_df.columns)
+    finalCols = list(colset.intersection(dffcols))
+    heatmap_df = heatmap_df.loc[:,finalCols]
+    #heatmap_df = heatmap_df.dropna(axis=1)
+
     data = [
         go.Bar(name='SAF',
-               x=per_ms_Annual_out[groupSel],
-               y=per_ms_Annual_out['SAF_COST_mean'],
+               x=cost_df[groupSel],
+               y=cost_df['SAF_COST_mean'],
                # error_y=dict(type='data', array=per_ms_Annual_out['SAF_COST_std'].to_list()), text=per_ms_Annual_out['SAF_COST_mean']
                width=0.3,
                offset=-0.3
                ),
         go.Bar(name='TAX',
-               x=per_ms_Annual_out[groupSel],
-               y=per_ms_Annual_out['TAX_COST_mean'],
+               x=cost_df[groupSel],
+               y=cost_df['TAX_COST_mean'],
                width=0.3,
                offset=-0.3
                ),
         go.Bar(name='ETS',
-               x=per_ms_Annual_out[groupSel],
-               y=per_ms_Annual_out['ETS_COST_mean'],
+               x=cost_df[groupSel],
+               y=cost_df['ETS_COST_mean'],
                width=0.3,
                offset=-0.3
                ),
         go.Bar(name='JET A1',
-               x=per_ms_Annual_out[groupSel],
-               y=per_ms_Annual_out['FUEL_COST_mean'], visible='legendonly',
+               x=cost_df[groupSel],
+               y=cost_df['FUEL_COST_mean'], visible='legendonly',
                width=0.3,
                offset=-0.3
                ),
         go.Bar(name='Total Fuel Cost',
-               x=per_ms_Annual_out[groupSel],
-               y=per_ms_Annual_out['TOTAL_FUEL_COST_mean'], visible='legendonly',
+               x=cost_df[groupSel],
+               y=cost_df['TOTAL_FUEL_COST_mean'], visible='legendonly',
                width=0.3,
                offset=0.0,
                base=0
                ),
         go.Bar(name='Total Cost of Measures',
-               x=per_ms_Annual_out[groupSel],
-               y=per_ms_Annual_out['TOTAL_COST_mean'], visible='legendonly',
+               x=cost_df[groupSel],
+               y=cost_df['TOTAL_COST_mean'], visible='legendonly',
                base=0,
                width=0.3,
                offset=0.3
@@ -488,8 +545,8 @@ def update_per_operator(fromSel, gdpPerCountry, groupSel, per_ms_Annual_out):
     fig.update_yaxes(title_text='USD per Flight')
 
     #update table
-    _col=[{"name": i, "id": i} for i in per_ms_Annual_out.columns]
-    datatab=per_ms_Annual_out.to_dict('records')
+    _col=[{"name": i, "id": i} for i in cost_df.columns]
+    datatab=cost_df.to_dict('records')
 
     return fig, go.Figure(data=[go.Scatter(x=[], y=[])]),go.Figure(data=[go.Scatter(x=[], y=[])]), datatab, _col
 

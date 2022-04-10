@@ -257,6 +257,8 @@ def calculatePairs(dfRatio, endSummerIATA, groupSel, ms_filtered_df, startSummer
         airportPairsWinter_df = airportPairsWinter_df * 5 / dfRatio[1]
 
         airportPairsTotal = airportPairsSummer_df + airportPairsWinter_df
+        airportPairsTotal= airportPairsTotal.dropna(how='all').fillna(0)
+
         return airportPairsTotal
     elif groupSel == 'AC_Operator':
         pass
