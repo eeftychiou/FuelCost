@@ -22,14 +22,6 @@ flights_df={}
 for yearIn in dataSetSelection:
     flights_df[yearIn] = pp.loadDefaultDataset(year=yearIn)
 
-    # flights_df[yearIn] = ft.CalculateSAFCost(flights_df[yearIn])
-    # flights_df[yearIn] = ft.CalculateFuelCost(flights_df[yearIn])
-    # flights_df[yearIn] = ft.CalculateTotalFuelCost(flights_df[yearIn])
-    # flights_df[yearIn] = ft.CalculateTaxCost(flights_df[yearIn])
-    # flights_df[yearIn] = ft.CalculateETSCost(flights_df[yearIn])
-    #
-    # flights_df[yearIn]['TOTAL_COST'] = flights_df[yearIn]['SAF_COST'] + flights_df[yearIn]['TAX_COST'] + flights_df[yearIn]['ETS_COST']
-
 regions_df = pd.read_excel('data/ICAOPrefix.xlsx')
 
 #default from selection
@@ -267,22 +259,25 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
 
     if toSel:
         dfquery =  fromQuery  + ' & ' + toQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'# + ' & '  + 'STATFOR_Market_Segment in @market'
+        allFlightsQuery = '(' + fromQuery + ' | ' + toQuery + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
     else:
         dfquery = fromQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'# + ' & ' + 'STATFOR_Market_Segment in @market'
+        allFlightsQuery = fromQuery + ' & ' + 'STATFOR_Market_Segment in @market'
 
-    allFlightsQuery = '(' +fromQuery + ' | ' + toQuery + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
+
 
     #1st Level query ADEP/ADES filter
-    flights_filtered_df = finalDf[yearSelected].query(allFlightsQuery)
-    flights_filtered_df = ft.CalculateSAFCost(flights_filtered_df, costOfSafFuelPerKg = safPrice, safBlendingMandate = blending/100, subSet=dfquery)
-    flights_filtered_df = ft.CalculateFuelCost(flights_filtered_df, costOfJetFuelPerKg = jetPrice, safBlendingMandate = blending/100, subSet=dfquery)
-    flights_filtered_df = ft.CalculateTotalFuelCost(flights_filtered_df)
-    flights_filtered_df = ft.CalculateTaxCost(flights_filtered_df, FuelTaxRateEurosPerGJ = taxRate, blendingMandate=blending/100, subSet=dfquery )
-    flights_filtered_df = ft.CalculateETSCost(flights_filtered_df, safBlendingMandate=blending/100, ETSCostpertonne = emissionsPrice, ETSpercentage = emissionsPercent, subSet=dfquery )
+    all_flights_df = finalDf[yearSelected].query(allFlightsQuery)
+    all_flights_df = ft.CalculateSAFCost(all_flights_df, costOfSafFuelPerKg = safPrice, safBlendingMandate = blending/100, subSet=dfquery)
+    all_flights_df = ft.CalculateFuelCost(all_flights_df, costOfJetFuelPerKg = jetPrice, safBlendingMandate = blending/100, subSet=dfquery)
+    all_flights_df = ft.CalculateTotalFuelCost(all_flights_df)
+    all_flights_df = ft.CalculateTaxCost(all_flights_df, FuelTaxRateEurosPerGJ = taxRate, blendingMandate=blending/100, subSet=dfquery )
+    all_flights_df = ft.CalculateETSCost(all_flights_df, safBlendingMandate=blending/100, ETSCostpertonne = emissionsPrice, ETSpercentage = emissionsPercent, subSet=dfquery )
 
-    flights_filtered_df['TOTAL_COST'] = flights_filtered_df['SAF_COST'] + flights_filtered_df['TAX_COST'] + flights_filtered_df['ETS_COST']
-    flights_filtered_df['ATOTAL_COST'] = flights_filtered_df['SAF_COST'] + flights_filtered_df['TAX_COST'] + flights_filtered_df['ETS_COST'] + flights_filtered_df['TOTAL_FUEL_COST']
+    all_flights_df['FIT55_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST']
+    all_flights_df['TOTAL_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST'] + all_flights_df['FUEL_COST']
 
+    flights_filtered_df = all_flights_df.query(dfquery)
 
     startSummerIATA, endSummerIATA = ft.getIATASeasons(yearSelected)
 
@@ -293,6 +288,7 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
     fromSelected = [k['label'] for k in fromSelDict if k['value'] == fromSel][0]
 
     per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, fromSel, groupSel, outerCheck, startSummerIATA, yearGDP, fromSelected)
+
 
     #GDP Calculations
     gdpPerCountry = pd.read_csv('data/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2916952.csv', usecols=['COUNTRY', '2016', '2017', '2018', '2019', '2020'], index_col='COUNTRY')
@@ -305,7 +301,7 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
         countryList = regions_df.query(fromSel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist()
         rowLoc = fromSel.replace('(ADEP_', '').replace('=="Y")', '')
 
-        #fromSelected = [k['label'] for k in fromSelDict if k['value'] == fromSel][0]
+
 
         gdpPerCountry.loc[fromSelected] = gdpPerCountry[gdpPerCountry.index.isin(countryList)].sum().tolist()
         per_group_annual_gdp = per_group_annual.join(gdpPerCountry, on='ADEP_COUNTRY', how='inner')
@@ -316,16 +312,17 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
             retMult = 1
 
         per_group_annual_gdp['TOTAL_GDP_RATIO'] = (per_group_annual_gdp['TOTAL_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
+        per_group_annual_gdp['FIT55_GDP_RATIO'] = (per_group_annual_gdp['FIT55_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
         per_group_annual_gdp['SAF_GDP_RATIO'] = (per_group_annual_gdp['SAF_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
         per_group_annual_gdp['ETS_GDP_RATIO'] = (per_group_annual_gdp['ETS_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
         per_group_annual_gdp['TAX_GDP_RATIO'] = (per_group_annual_gdp['TAX_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
     elif groupSel == 'ADEP':
         # TODO calculate the overall traffic for airport and determine the traffic affected by the measures vs not affected
         # Only filter on Market segment, ignore departure/destination filters
-        all_flights_df = flights_df.query('STATFOR_Market_Segment in @market')
-        total_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, all_flights_df, fromSel, groupSel, outerCheck, startSummerIATA, yearGDP, fromSelected)
 
-        per_group_annual_gdp = per_group_annual.set_index('ADEP').div(total_group_annual.set_index('ADEP'))
+        all_per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, all_flights_df, fromSel, groupSel, outerCheck, startSummerIATA, yearGDP, fromSelected)
+
+        per_group_annual_gdp = per_group_annual.set_index('ADEP').div(all_per_group_annual.set_index('ADEP'))
 
         per_group_annual_gdp = per_group_annual_gdp.dropna()
 
@@ -335,7 +332,8 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
         pass
     elif groupSel == 'AC_Operator':
         #TODO for AC operator comparison. Calculate ratio of whole operations
-        per_group_annual_gdp = pd.DataFrame()
+        per_group_annual_gdp = per_group_annual.loc[:,[groupSel,'FUEL_sum','Actual_Distance_Flown_sum']]
+        per_group_annual_gdp['FUEL_EFF'] = per_group_annual_gdp['FUEL_sum'] / per_group_annual_gdp['Actual_Distance_Flown_sum']
         pass
     elif groupSel[0] == 'ADEP_COUNTRY' and groupSel[1] == 'ADES_COUNTRY':
         #TODO GDP for Country Country Pair
@@ -352,12 +350,12 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
     ds_gdp = per_group_annual_gdp.to_json(date_format='iso', orient='split')
 
 
-    #return options
-    rowNames = per_group_annual[groupSel].tolist()
+    #return options filter out less than 365 flights either per MS, airport or airline
+    rowNames = per_group_annual.query('Flights_size>700')[groupSel].tolist()
     Seloptions =[{'label': i, 'value': i} for i in rowNames]
     Selvalue = [x['value'] for x in Seloptions][:50]
 
-    return Seloptions, Selvalue,ds_cost,ds_gdp, ds_heatmap
+    return Seloptions, Selvalue, ds_cost, ds_gdp, ds_heatmap
 
 
 
@@ -368,8 +366,9 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
 
     colset=set(SelectedOptions)
     dffcols = set(heatmap_df.columns)
-    finalCols = list(colset.intersection(dffcols))
-    heatmap_df = heatmap_df.loc[:,finalCols]
+    dffrows = set(heatmap_df.index)
+    finalCols = list(colset.intersection(dffcols, dffrows))
+    heatmap_df = heatmap_df.loc[finalCols,finalCols]
     #heatmap_df = heatmap_df.dropna(axis=1)
 
 
@@ -407,7 +406,14 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
                offset=0.0,
                base=0
                ),
-        go.Bar(name='Total Cost of Measures',
+        go.Bar(name='Total Cost of Fit55 Measures',
+               x=cost_df[groupSelection],
+               y=cost_df['FIT55_COST_mean'], visible='legendonly',
+               base=0,
+               width=0.3,
+               offset=0.3
+               ),
+        go.Bar(name='Total Cost of Fuel and Measures',
                x=cost_df[groupSelection],
                y=cost_df['TOTAL_COST_mean'], visible='legendonly',
                base=0,
@@ -428,7 +434,7 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
     dataGDP = [
         go.Bar(name='SAF',
                x=gdp_df['ADEP'],
-               y=gdp_df['SAF_COST_mean'],
+               y=gdp_df['SAF_COST_mean'], visible='legendonly',
                # error_y=dict(type='data', array=per_ms_Annual_out['SAF_COST_std'].to_list()), text=per_ms_Annual_out['SAF_COST_mean']
                width=0.4,
                offset=-0.4,
@@ -436,21 +442,29 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
                ),
         go.Bar(name='TAX',
                x=gdp_df['ADEP'],
-               y=gdp_df['TAX_COST_mean'],
+               y=gdp_df['TAX_COST_mean'], visible='legendonly',
                width=0.4,
                offset=-0.4,
                offsetgroup=1
                ),
         go.Bar(name='ETS',
                x=gdp_df['ADEP'],
-               y=gdp_df['ETS_COST_mean'],
+               y=gdp_df['ETS_COST_mean'], visible='legendonly',
                width=0.4,
                offset=-0.4,
                offsetgroup=1
                ),
-        go.Bar(name='Total Ratio of Measures',
+        go.Bar(name='Total Ratio of FIT 55 Measures', visible='legendonly',
                x=gdp_df['ADEP'],
-               y=gdp_df['TOTAL_COST_mean'], visible='legendonly',
+               y=gdp_df['FIT55_COST_mean'],
+               width=0.4,
+               offset=0.0,
+               base=0,
+               offsetgroup=1
+               ),
+        go.Bar(name='Total Ratio of Fuel and Fit55 Measures',
+               x=gdp_df['ADEP'],
+               y=gdp_df['TOTAL_COST_mean'],
                width=0.4,
                offset=0.0,
                base=0,
@@ -459,7 +473,7 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
     ]
 
 
-    layout = go.Layout(title='Ratio of Selected Flights with allflights per Airport',
+    layout = go.Layout(title='Ratio of Selected Flights with all flights per Airport',
                        yaxis=dict(title='Ratio'),
                         barmode='stack',
                        legend = dict(yanchor="top", y=0.99, xanchor="right",x=1.21)
@@ -481,21 +495,22 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
 
     figPairs.update_layout(title="Number of flights between Airports",
                            width=2000,
-                           height=1000,
+                           height=2000,
                            xaxis={"tickangle": 45}, )
 
     return fig, figGDP, figPairs, datatab, _col
 
 def update_per_operator(SelectedOptions, gdp_df, groupSel, cost_df, heatmap_df):
     #SelectedOptions, gdp_df, groupSelection, cost_df, heatmap_df
-    gdp_df = gdp_df.loc[gdp_df['ADEP'].isin(SelectedOptions)]
-    cost_df = cost_df.loc[cost_df['ADEP'].isin(SelectedOptions)]
+    # gdp_df = gdp_df.loc[gdp_df['ADEP'].isin(SelectedOptions)]
+    cost_df = cost_df.loc[cost_df[groupSel].isin(SelectedOptions)]
+    gdp_df = gdp_df.loc[gdp_df[groupSel].isin(SelectedOptions)]
 
-    colset=set(SelectedOptions)
-    dffcols = set(heatmap_df.columns)
-    finalCols = list(colset.intersection(dffcols))
-    heatmap_df = heatmap_df.loc[:,finalCols]
-    #heatmap_df = heatmap_df.dropna(axis=1)
+    # colset=set(SelectedOptions)
+    # dffcols = set(heatmap_df.columns)
+    # finalCols = list(colset.intersection(dffcols))
+    # heatmap_df = heatmap_df.loc[:,finalCols]
+    # #heatmap_df = heatmap_df.dropna(axis=1)
 
     data = [
         go.Bar(name='SAF',
@@ -532,6 +547,13 @@ def update_per_operator(SelectedOptions, gdp_df, groupSel, cost_df, heatmap_df):
                ),
         go.Bar(name='Total Cost of Measures',
                x=cost_df[groupSel],
+               y=cost_df['FIT55_COST_mean'], visible='legendonly',
+               base=0,
+               width=0.3,
+               offset=0.3
+               ),
+        go.Bar(name='Total Cost of Measures',
+               x=cost_df[groupSel],
                y=cost_df['TOTAL_COST_mean'], visible='legendonly',
                base=0,
                width=0.3,
@@ -545,11 +567,38 @@ def update_per_operator(SelectedOptions, gdp_df, groupSel, cost_df, heatmap_df):
     fig = go.Figure(data=data, layout=layout)
     fig.update_yaxes(title_text='USD per Flight')
 
+
+
+    gdp_df = gdp_df.sort_values(by=['FUEL_EFF'], ascending=True)
+
+    dataGDP = [
+        go.Bar(name='Fuel Efficiency',
+               x=gdp_df['AC_Operator'],
+               y=gdp_df['FUEL_EFF'],
+               # error_y=dict(type='data', array=per_ms_Annual_out['SAF_COST_std'].to_list()), text=per_ms_Annual_out['SAF_COST_mean']
+               width=0.4,
+               offset=-0.4,
+               offsetgroup=1
+               )
+    ]
+
+
+    layout = go.Layout(title='Airline Fuel Efficiency',
+                       yaxis=dict(title='Efficiency Fuel(kg)/nm'),
+                        barmode='stack',
+                       legend = dict(yanchor="top", y=0.99, xanchor="right",x=1.21)
+    )
+
+
+    figGDP= go.Figure(data=dataGDP, layout= layout)
+
+
     #update table
     _col=[{"name": i, "id": i} for i in cost_df.columns]
     datatab=cost_df.to_dict('records')
 
-    return fig, go.Figure(data=[go.Scatter(x=[], y=[])]),go.Figure(data=[go.Scatter(x=[], y=[])]), datatab, _col
+    return fig, figGDP,go.Figure(data=[go.Scatter(x=[], y=[])]), datatab, _col
+
 
 def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
 
@@ -597,9 +646,16 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
                offset=0.0,
                base=0
                ),
-        go.Bar(name='Total Cost of Measures',
+        go.Bar(name='Total Cost of Fuel and Measures',
                x=cost_df[groupSel],
                y=cost_df['TOTAL_COST_mean'], visible='legendonly',
+               base=0,
+               width=0.3,
+               offset=0.3
+               ),
+        go.Bar(name='Total Cost of FIT55 Measures',
+               x=cost_df[groupSel],
+               y=cost_df['FIT55_COST_mean'], visible='legendonly',
                base=0,
                width=0.3,
                offset=0.3
@@ -640,7 +696,7 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
                offsetgroup=1,
                yaxis='y1'
                ),
-        go.Bar(name='Total GDP Ratio of Measures',
+        go.Bar(name='Total GDP Ratio of Fuel and Measures',
                x=gdp_df['ADEP_COUNTRY'],
                y=gdp_df['TOTAL_GDP_RATIO'], visible='legendonly',
                width=0.4,
@@ -648,6 +704,15 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
                base=0,
                offsetgroup=1,
                yaxis = 'y1'
+               ),
+        go.Bar(name='Total GDP Ratio of Fit55 Measures',
+               x=gdp_df['ADEP_COUNTRY'],
+               y=gdp_df['FIT55_GDP_RATIO'], visible='legendonly',
+               width=0.4,
+               offset=0.0,
+               base=0,
+               offsetgroup=1,
+               yaxis='y1'
                ),
         go.Scatter(name='Percent of total Emissions',
                    x=gdp_df['ADEP_COUNTRY'],
@@ -704,15 +769,12 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
      dash.dependencies.State('ds_heatmap', 'data'),
      dash.dependencies.State('groupSelection', 'value')])
 def update_graphs(SelectedOptions, ds_cost,ds_gdp, ds_heatmap, groupSelection):
-    if ds_cost is None or groupSelection=='AC_Operator':
-        return go.Figure(data=[go.Scatter(x=[], y=[])])
-
 
     cost_df = pd.read_json(ds_cost, orient='split')
     gdp_df = pd.read_json(ds_gdp,orient='split')
     heatmap_df = pd.read_json(ds_heatmap, orient = 'split')
 
-    if cost_df.empty is True or heatmap_df.empty is True:
+    if cost_df.empty is True:
         fig= go.Figure(data=[go.Scatter(x=[], y=[])])
         return fig,fig,fig
 

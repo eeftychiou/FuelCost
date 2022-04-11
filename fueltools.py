@@ -111,18 +111,21 @@ def loadPickle(year, month):
 
 def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.02, subSet=None  ):
 
-    flights_df['SAF_COST']= 0.0
+    flights_df=flights_df.assign(SAF_COST=0.0)
     flights_df.loc[flights_df.eval(subSet),'SAF_COST'] = flights_df.query(subSet)['FUEL'] * safBlendingMandate * costOfSafFuelPerKg
 
     return flights_df
 
 def CalculateFuelCost(flights_df, costOfJetFuelPerKg = 0.81, safBlendingMandate = 0.02, subSet=None):
 
+    flights_df = flights_df.assign(FUEL_COST=0.0)
     flights_df['FUEL_COST'] = flights_df['FUEL'] * costOfJetFuelPerKg
     flights_df.loc[flights_df.eval(subSet),'FUEL_COST'] = flights_df.query(subSet)['FUEL']*(1-safBlendingMandate) * costOfJetFuelPerKg
     return flights_df
 
 def CalculateTotalFuelCost(flights_df):
+
+    flights_df = flights_df.assign(TOTAL_FUEL_COST=0.0)
     flights_df['TOTAL_FUEL_COST'] = flights_df['SAF_COST'] + flights_df['FUEL_COST']
     return flights_df
 
@@ -171,7 +174,7 @@ def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=
     FuelTaxRateUsdPerKg = FuelTaxRateEurosPerKg * EurosToUsdExchangeRate
     # *************************************************** #
 
-    flights_df['TAX_COST']= 0.0
+    flights_df = flights_df.assign(TAX_COST= 0.0)
     flights_df.loc[flights_df.eval(subSet),'TAX_COST'] = flights_df.query(subSet)['FUEL'] * (1-blendingMandate) * FuelTaxRateUsdPerKg
 
     return flights_df
@@ -180,7 +183,8 @@ def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, 
 
     ETSPricePerKg = ETSCostpertonne/1000 * EurosToUsdExchangeRate
 
-    flights_df['ETS_COST'] = 0.0
+
+    flights_df = flights_df.assign(ETS_COST = 0.0 )
     flights_df.loc[flights_df.eval(subSet),'ETS_COST'] = flights_df.query(subSet)['FUEL'] * 3.15 * (1-safBlendingMandate) * ETSPricePerKg * ETSpercentage/100
 
     return flights_df
@@ -267,6 +271,7 @@ def calculatePairs(dfRatio, endSummerIATA, groupSel, ms_filtered_df, startSummer
     elif groupSel == 'AC_Operator':
         pass
 
+    return None
     # TODO Country/Country Pair
 
 
@@ -308,9 +313,9 @@ def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGr
     # Summer
     per_group_summer = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) & (
             flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)] \
-        .groupby([groupSel])[['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'TOTAL_COST']] \
+        .groupby([groupSel])[['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST','FIT55_COST' ,'TOTAL_COST']] \
         .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
-              'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']})
+              'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'],'FIT55_COST' : ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']})
     per_group_summer_quantiles = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) & (
             flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)] \
         .groupby([groupSel])[['SAF_COST', 'TAX_COST', 'ETS_COST']] \
@@ -319,9 +324,9 @@ def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGr
     # Winter
     per_group_winter = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] < startSummerIATA) | (
             flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA)] \
-        .groupby([groupSel])[['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'TOTAL_COST']] \
+        .groupby([groupSel])[['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST','FIT55_COST', 'TOTAL_COST']] \
         .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
-              'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']})
+              'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'],'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']})
     per_group_winter_quantiles = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] < startSummerIATA) | (
             flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA)] \
         .groupby([groupSel])[['SAF_COST', 'TAX_COST', 'ETS_COST']] \
@@ -337,15 +342,15 @@ def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGr
     per_group_annual.loc[:, per_group_annual.columns.str.contains('mean|std|%')] = per_group_annual.loc[:, per_group_annual.columns.str.contains('mean|std|%')] / 12
     # Calculate from selected region averages, eg EU_EEA_EFTA
     sel_avg_quantiles_sum = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) & (
-            flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'TOTAL_COST']].describe()
+            flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST','FIT55_COST', 'TOTAL_COST']].describe()
     sel_avg_sum_sum = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) & (
-            flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'TOTAL_COST']].sum().reset_index(name='sum')
+            flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST','FIT55_COST', 'TOTAL_COST']].sum().reset_index(name='sum')
     selected_summer = sel_avg_quantiles_sum.T
     selected_summer['sum'] = (sel_avg_sum_sum.loc[:, 'sum'] / dfRatio[0]).tolist()
     sel_avg_quantiles_win = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] < startSummerIATA) | (
-            flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'TOTAL_COST']].describe()
+            flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST','FIT55_COST', 'TOTAL_COST']].describe()
     sel_avg_sum_win = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] < startSummerIATA) | (
-            flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'TOTAL_COST']].sum().reset_index(name='sum')
+            flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST','TOTAL_COST']].sum().reset_index(name='sum')
     selected_winter = sel_avg_quantiles_win.T
     selected_winter['sum'] = (sel_avg_sum_win.loc[:, 'sum'] / dfRatio[1]).tolist()
     sel_ms_Annual = ((selected_summer * 7) + (selected_winter * 5))
@@ -374,6 +379,9 @@ def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGr
                                           sel_ms_Annual.loc['ETS_COST', 'mean'],
                                           sel_ms_Annual.loc['ETS_COST', 'std'],
                                           sel_ms_Annual.loc['ETS_COST', 'sum'],
+                                          sel_ms_Annual.loc['FIT55_COST', 'mean'],
+                                          sel_ms_Annual.loc['FIT55_COST', 'std'],
+                                          sel_ms_Annual.loc['FIT55_COST', 'sum'],
                                           sel_ms_Annual.loc['TOTAL_COST', 'mean'],
                                           sel_ms_Annual.loc['TOTAL_COST', 'std'],
                                           sel_ms_Annual.loc['TOTAL_COST', 'sum'],
