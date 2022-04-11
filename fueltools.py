@@ -109,13 +109,17 @@ def loadPickle(year, month):
 # SafBlendingMandate = 0.02
 # **************************************** #
 
-def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.00 ):
+def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.02, subSet=None  ):
 
-    flights_df['SAF_COST'] = flights_df['FUEL'] * safBlendingMandate * costOfSafFuelPerKg
+    flights_df['SAF_COST']= 0.0
+    flights_df.loc[flights_df.eval(subSet),'SAF_COST'] = flights_df.query(subSet)['FUEL'] * safBlendingMandate * costOfSafFuelPerKg
+
     return flights_df
 
-def CalculateFuelCost(flights_df, costOfJetFuelPerKg = 0.81, safBlendingMandate = 0.00 ):
-    flights_df['FUEL_COST'] = flights_df['FUEL']*(1-safBlendingMandate) * costOfJetFuelPerKg
+def CalculateFuelCost(flights_df, costOfJetFuelPerKg = 0.81, safBlendingMandate = 0.02, subSet=None):
+
+    flights_df['FUEL_COST'] = flights_df['FUEL'] * costOfJetFuelPerKg
+    flights_df.loc[flights_df.eval(subSet),'FUEL_COST'] = flights_df.query(subSet)['FUEL']*(1-safBlendingMandate) * costOfJetFuelPerKg
     return flights_df
 
 def CalculateTotalFuelCost(flights_df):
@@ -149,7 +153,7 @@ def getIATASeasons(setyear):
     return startSummer, endSummer
 
 
-def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=0.00 ):
+def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=0.00, subSet=None ):
     # *************************************************** #
     # Constants for Fuel TAX Calculations
     # all prices are in Euros/GJ
@@ -162,22 +166,22 @@ def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=
 
 
 
-
-
     # Tax rate in Euros/kg
     FuelTaxRateEurosPerKg = (46.4 / 1000) * FuelTaxRateEurosPerGJ
     FuelTaxRateUsdPerKg = FuelTaxRateEurosPerKg * EurosToUsdExchangeRate
     # *************************************************** #
 
-    flights_df['TAX_COST'] = flights_df['FUEL'] * (1-blendingMandate) * FuelTaxRateUsdPerKg
+    flights_df['TAX_COST']= 0.0
+    flights_df.loc[flights_df.eval(subSet),'TAX_COST'] = flights_df.query(subSet)['FUEL'] * (1-blendingMandate) * FuelTaxRateUsdPerKg
 
     return flights_df
 
-def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, ETSpercentage = 50):
+def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, ETSpercentage = 50 , subSet=None):
 
     ETSPricePerKg = ETSCostpertonne/1000 * EurosToUsdExchangeRate
 
-    flights_df['ETS_COST'] = flights_df['FUEL']* 3.15 * (1-safBlendingMandate) * ETSPricePerKg * ETSpercentage/100
+    flights_df['ETS_COST'] = 0.0
+    flights_df.loc[flights_df.eval(subSet),'ETS_COST'] = flights_df.query(subSet)['FUEL'] * 3.15 * (1-safBlendingMandate) * ETSPricePerKg * ETSpercentage/100
 
     return flights_df
 

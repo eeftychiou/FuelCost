@@ -15,7 +15,6 @@ app.title='Fit for 55 Impact on Air Transport'
 
 pp.pre_process()
 
-#dataYear = 2018
 
 dataSetSelection = ft.getYears()
 dataYear = max(dataSetSelection)
@@ -23,15 +22,16 @@ flights_df={}
 for yearIn in dataSetSelection:
     flights_df[yearIn] = pp.loadDefaultDataset(year=yearIn)
 
-    flights_df[yearIn] = ft.CalculateSAFCost(flights_df[yearIn])
-    flights_df[yearIn] = ft.CalculateFuelCost(flights_df[yearIn])
-    flights_df[yearIn] = ft.CalculateTotalFuelCost(flights_df[yearIn])
-    flights_df[yearIn] = ft.CalculateTaxCost(flights_df[yearIn])
-    flights_df[yearIn] = ft.CalculateETSCost(flights_df[yearIn])
-
-    flights_df[yearIn]['TOTAL_COST'] = flights_df[yearIn]['SAF_COST'] + flights_df[yearIn]['TAX_COST'] + flights_df[yearIn]['ETS_COST']
+    # flights_df[yearIn] = ft.CalculateSAFCost(flights_df[yearIn])
+    # flights_df[yearIn] = ft.CalculateFuelCost(flights_df[yearIn])
+    # flights_df[yearIn] = ft.CalculateTotalFuelCost(flights_df[yearIn])
+    # flights_df[yearIn] = ft.CalculateTaxCost(flights_df[yearIn])
+    # flights_df[yearIn] = ft.CalculateETSCost(flights_df[yearIn])
+    #
+    # flights_df[yearIn]['TOTAL_COST'] = flights_df[yearIn]['SAF_COST'] + flights_df[yearIn]['TAX_COST'] + flights_df[yearIn]['ETS_COST']
 
 regions_df = pd.read_excel('data/ICAOPrefix.xlsx')
+
 #default from selection
 fromSelection = regions_df.columns[2:].tolist()
 defFromSelection = fromSelection[3]
@@ -253,16 +253,8 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
                  emissionsPercent, emissionsPrice, outerCheck, yearSelected, groupSel,
                  yearGDP, gdpGrowth, nclicks, extrapolateRet, flightGrowth, emissionsGrowth):
 
-    flights_df = finalDf[yearSelected]
-    flights_df = ft.CalculateSAFCost(flights_df, costOfSafFuelPerKg = safPrice, safBlendingMandate = blending/100 )
-    flights_df = ft.CalculateFuelCost(flights_df, costOfJetFuelPerKg = jetPrice, safBlendingMandate = blending/100)
-    flights_df = ft.CalculateTotalFuelCost(flights_df)
-    flights_df = ft.CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = taxRate, blendingMandate=blending/100 )
-    flights_df = ft.CalculateETSCost(flights_df, safBlendingMandate=blending/100, ETSCostpertonne = emissionsPrice, ETSpercentage = emissionsPercent )
 
-    flights_df['TOTAL_COST'] = flights_df['SAF_COST'] + flights_df['TAX_COST'] + flights_df['ETS_COST']
-
-    #Build 1st level query based on input values
+    #Build 1st subset level query based on input values
     if outerCheck=='OUTER_CLOSE':
         fromQuery = '(' + fromSel + ' | ' + '(ADEP_OUTER_CLOSE=="Y"))'
         toQuery = toSel
@@ -274,14 +266,23 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
         toQuery   = toSel
 
     if toSel:
-        dfquery =  fromQuery  + ' & ' + toQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))' + ' & ' + \
-                  'STATFOR_Market_Segment in @market'
+        dfquery =  fromQuery  + ' & ' + toQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'# + ' & '  + 'STATFOR_Market_Segment in @market'
     else:
-        dfquery = fromQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))' + ' & ' + \
-                  'STATFOR_Market_Segment in @market'
+        dfquery = fromQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'# + ' & ' + 'STATFOR_Market_Segment in @market'
+
+    allFlightsQuery = '(' +fromQuery + ' | ' + toQuery + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
 
     #1st Level query ADEP/ADES filter
-    flights_filtered_df = flights_df.query(dfquery)
+    flights_filtered_df = finalDf[yearSelected].query(allFlightsQuery)
+    flights_filtered_df = ft.CalculateSAFCost(flights_filtered_df, costOfSafFuelPerKg = safPrice, safBlendingMandate = blending/100, subSet=dfquery)
+    flights_filtered_df = ft.CalculateFuelCost(flights_filtered_df, costOfJetFuelPerKg = jetPrice, safBlendingMandate = blending/100, subSet=dfquery)
+    flights_filtered_df = ft.CalculateTotalFuelCost(flights_filtered_df)
+    flights_filtered_df = ft.CalculateTaxCost(flights_filtered_df, FuelTaxRateEurosPerGJ = taxRate, blendingMandate=blending/100, subSet=dfquery )
+    flights_filtered_df = ft.CalculateETSCost(flights_filtered_df, safBlendingMandate=blending/100, ETSCostpertonne = emissionsPrice, ETSpercentage = emissionsPercent, subSet=dfquery )
+
+    flights_filtered_df['TOTAL_COST'] = flights_filtered_df['SAF_COST'] + flights_filtered_df['TAX_COST'] + flights_filtered_df['ETS_COST']
+    flights_filtered_df['ATOTAL_COST'] = flights_filtered_df['SAF_COST'] + flights_filtered_df['TAX_COST'] + flights_filtered_df['ETS_COST'] + flights_filtered_df['TOTAL_FUEL_COST']
+
 
     startSummerIATA, endSummerIATA = ft.getIATASeasons(yearSelected)
 
