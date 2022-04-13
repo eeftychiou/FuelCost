@@ -611,7 +611,7 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
     heatmap_df = heatmap_df.loc[:,finalCols]
     heatmap_df = heatmap_df.dropna(axis=1)
 
-
+    cost_df = cost_df.sort_values(by=['TOTAL_COST_mean'], ascending=False)
 
     data = [
         go.Bar(name='SAF',
