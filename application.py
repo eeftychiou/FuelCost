@@ -25,7 +25,8 @@ for yearIn in dataSetSelection:
 regions_df = pd.read_excel('data/ICAOPrefix.xlsx')
 
 #default from selection
-fromSelection = regions_df.columns[2:].tolist()
+
+fromSelection = regions_df.columns[6:].tolist()
 defFromSelection = fromSelection[3]
 
 finalDf=flights_df
@@ -151,7 +152,10 @@ app.layout = html.Div([
         ],
             style={'width': '20%', 'display': 'inline-block'}),
 
+
         html.Div([
+            dcc.Tabs([
+            dcc.Tab(label='Tab one', children=[
             dcc.Dropdown(id='SelectedOptions', multi=True, clearable=False,searchable=True),
             dcc.Graph(
                 id='Cost_graph',
@@ -205,6 +209,20 @@ app.layout = html.Div([
             ),
 
             html.Div(id='datatable-interactivity-container')
+                ]),
+                dcc.Tab(label='Tab three', children=[
+                    dcc.Graph(
+                        figure={
+                            'data': [
+                                {'x': [1, 2, 3], 'y': [2, 4, 3],
+                                 'type': 'bar', 'name': 'SF'},
+                                {'x': [1, 2, 3], 'y': [5, 4, 3],
+                                 'type': 'bar', 'name': u'Montréal'},
+                            ]
+                        }
+                    )
+                ]),
+            ]),
         ], style={'width': '79%', 'float': 'right', 'display': 'inline-block'}),
     # signal value to trigger callbacks
     dcc.Store(id='signal')
@@ -611,7 +629,7 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
     heatmap_df = heatmap_df.loc[:,finalCols]
     heatmap_df = heatmap_df.dropna(axis=1)
 
-    cost_df = cost_df.sort_values(by=['TOTAL_COST_mean'], ascending=False)
+    cost_df = cost_df.sort_values(by=['FIT55_COST_mean'], ascending=False)
 
     data = [
         go.Bar(name='SAF',

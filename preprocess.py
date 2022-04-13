@@ -124,7 +124,7 @@ def CreateCategories(flights_df):
                                  rsuffix="ADES")
 
     #Change all into categories
-    for colName in ['ADEP_PREFIX', 'ADES_PREFIX', 'ADEP_COUNTRY', 'ADEP_EU_EEA_EFTA', 'ADEP_ECAC', 'ADEP_OUTERMOST_REGIONS', 'ADEP_EU_EEA_EFTA_UK',
+    for colName in ['ADES_SAF', 'ADES_ETD', 'ADES_ETS','ADES_CORSIA', 'ADEP_SAF', 'ADEP_ETD', 'ADEP_ETS','ADEP_CORSIA', 'ADEP_PREFIX', 'ADES_PREFIX', 'ADEP_COUNTRY', 'ADEP_EU_EEA_EFTA', 'ADEP_ECAC', 'ADEP_OUTERMOST_REGIONS', 'ADEP_EU_EEA_EFTA_UK',
                     'ADEP_OUTER_CLOSE', 'ADES_COUNTRY', 'ADES_EU_EEA_EFTA', 'ADES_ECAC', 'ADES_OUTERMOST_REGIONS', 'ADES_EU_EEA_EFTA_UK', 'ADES_OUTER_CLOSE']:
         flights_df[colName] = flights_df[colName].astype('category')
 
