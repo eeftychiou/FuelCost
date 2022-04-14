@@ -90,25 +90,22 @@ app.layout = html.Div([
             ),
             html.P('Select Departure Region', style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Dropdown(
-                id='fromSelection',
+                id='fromSelection', multi=True,
                 options=fromSelDict,
-                value=fromSelDict[3]['value'], clearable = False
+                value=[fromSelDict[3]['value']], clearable = False
             ),
-            html.P('Include Close outermost regions', style={"height": "auto", "margin-bottom": "auto"}),
-            dcc.Dropdown(
-                id='outerCheck',
-                options=[
-                    {'label': 'Close Outermost Regions', 'value': 'OUTER_CLOSE'},
-                    {'label': 'Outermost Regions', 'value': 'OUTERMOST_REGIONS'}
+            html.P('Enter additional comma delimited Departure Country codes', style={"height": "auto", "margin-bottom": "auto"}),
+            dcc.Input(id="fromSelAdd", type="text", placeholder='', value='', debounce=True),
 
-                ]
-            ),
             html.P('Select Destination Region', style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Dropdown(
                 id='toSelection',
-                options=toSelDict,
-                value=toSelDict[3]['value'], clearable = True
+                options=toSelDict,multi=True,
+                value=[toSelDict[3]['value']], clearable = True
             ),
+            html.P('Enter additional comma delimited Destination Country codes', style={"height": "auto", "margin-bottom": "auto"}),
+            dcc.Input(id="toSelAdd", type="text", placeholder='', value='', debounce=True),
+
             html.P('Select Market Segment', style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Dropdown(
                 id='marketSelection',
@@ -241,7 +238,9 @@ application = app.server
      ],
     [dash.dependencies.State('monthSelection', 'value'),
      dash.dependencies.State('fromSelection', 'value'),
+     dash.dependencies.State('fromSelAdd', 'value'),
      dash.dependencies.State('toSelection', 'value'),
+     dash.dependencies.State('toSelAdd', 'value'),
      dash.dependencies.State('marketSelection', 'value'),
      dash.dependencies.State('safPrice', 'value'),
      dash.dependencies.State('blendingMandate', 'value'),
@@ -249,7 +248,6 @@ application = app.server
      dash.dependencies.State('taxRate', "value"),
      dash.dependencies.State('emissionsPercent', 'value'),
      dash.dependencies.State('emissionsPrice', 'value'),
-     dash.dependencies.State('outerCheck', 'value'),
      dash.dependencies.State('DatasetSelection', 'value'),
      dash.dependencies.State('groupSelection', 'value'),
      dash.dependencies.State('yearGDP', 'value'),
@@ -259,32 +257,61 @@ application = app.server
      dash.dependencies.State('flightGrowth', 'value'),
      dash.dependencies.State('emGrowth', 'value')
      ])
-def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPrice, taxRate,
-                 emissionsPercent, emissionsPrice, outerCheck, yearSelected, groupSel,
+def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPrice, blending, jetPrice, taxRate,
+                 emissionsPercent, emissionsPrice, yearSelected, groupSel,
                  yearGDP, gdpGrowth, nclicks, extrapolateRet, flightGrowth, emissionsGrowth):
 
 
-    #Build 1st subset level query based on input values
-    if outerCheck=='OUTER_CLOSE':
-        fromQuery = '(' + fromSel + ' | ' + '(ADEP_OUTER_CLOSE=="Y"))'
-        toQuery = toSel
-    elif outerCheck=='OUTERMOST_REGIONS':
-        fromQuery = '(' + fromSel + ' | ' + '(ADEP_OUTERMOST_REGIONS=="Y"))'
-        toQuery   = toSel
+    if fromSelAdd:
+        fromSelAdd=fromSelAdd.split(',')
+        for i,addRegion in enumerate(fromSelAdd):
+            fromSelAdd[i] = 'ADEP_PREFIX =="' + addRegion + '"'
+
+        fromQuery = '(' + ' | '.join(fromSel) + ' | ' + ' | '.join(fromSelAdd) + ')'
     else:
-        fromQuery =  fromSel
-        toQuery   = toSel
+        fromQuery = '(' + ' | '.join(fromSel) + ')'
+
+
+    if toSelAdd:
+        toSelAdd = toSelAdd.split(',')
+        for i, addRegion in enumerate(toSelAdd):
+            toSelAdd[i] = 'ADES_PREFIX =="' + addRegion + '"'
+
+        toQuery = '(' + ' | '.join(toSel) + ' | ' + ' | '.join(toSelAdd) + ')'
+    else:
+        toQuery = '(' + ' | '.join(toSel) + ')'
+
+
+    # Add market region to queries
+    # fromQuery = fromQuery + ' & ' + 'STATFOR_Market_Segment in @market'
+    # toQuery = toQuery + ' & ' + 'STATFOR_Market_Segment in @market'
+
+    # #Build 1st subset level query based on input values
+    # if outerCheck=='OUTER_CLOSE':
+    #     fromQuery = '(' + fromSel + ' | ' + '(ADEP_OUTER_CLOSE=="Y"))'
+    #     toQuery = toSel
+    # elif outerCheck=='OUTERMOST_REGIONS':
+    #     fromQuery = '(' + fromSel + ' | ' + '(ADEP_OUTERMOST_REGIONS=="Y"))'
+    #     toQuery   = toSel
+    # else:
+    #     fromQuery =  fromSel
+    #     toQuery   = toSel
 
     if toSel:
-        dfquery =  fromQuery  + ' & ' + toQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'# + ' & '  + 'STATFOR_Market_Segment in @market'
+        dfquery =  fromQuery  + ' & ' + toQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))' #+ ' & '  + 'STATFOR_Market_Segment in @market'
         allFlightsQuery = '(' + fromQuery + ' | ' + toQuery + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
     else:
-        dfquery = fromQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'# + ' & ' + 'STATFOR_Market_Segment in @market'
+        dfquery = fromQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'  #+ ' & ' + 'STATFOR_Market_Segment in @market'
         allFlightsQuery = fromQuery + ' & ' + 'STATFOR_Market_Segment in @market'
 
 
+    if 'OUTER_CLOSE' in fromSel:
+        outerCheck='OUTER_CLOSE'
+    else:
+        outerCheck=''
 
     #1st Level query ADEP/ADES filter
+    # market segment filtered already in all_flights_df
     all_flights_df = finalDf[yearSelected].query(allFlightsQuery)
     all_flights_df = ft.CalculateSAFCost(all_flights_df, costOfSafFuelPerKg = safPrice, safBlendingMandate = blending/100, subSet=dfquery)
     all_flights_df = ft.CalculateFuelCost(all_flights_df, costOfJetFuelPerKg = jetPrice, safBlendingMandate = blending/100, subSet=dfquery)
@@ -303,9 +330,9 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
 
     heatmap_df  = ft.calculatePairs(dfRatio, endSummerIATA, groupSel, flights_filtered_df, startSummerIATA)
 
-    fromSelected = [k['label'] for k in fromSelDict if k['value'] == fromSel][0]
+    #fromSelected = [k['label'] for k in fromSelDict if k['value'] == fromSel][0]
 
-    per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, fromSel, groupSel, outerCheck, startSummerIATA, yearGDP, fromSelected)
+    per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP)
 
 
     #GDP Calculations
@@ -316,12 +343,14 @@ def calculate_costs(monthSel, fromSel, toSel, market, safPrice, blending, jetPri
 
     #Calculate GDP groups
     if groupSel == 'ADEP_COUNTRY':
-        countryList = regions_df.query(fromSel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist()
-        rowLoc = fromSel.replace('(ADEP_', '').replace('=="Y")', '')
+        countryList=[]
+        for sel in fromSel:
+            countryList.append(regions_df.query(sel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist())
+            #rowLoc = fromSel.replace('(ADEP_', '').replace('=="Y")', '')
 
 
 
-        gdpPerCountry.loc[fromSelected] = gdpPerCountry[gdpPerCountry.index.isin(countryList)].sum().tolist()
+        gdpPerCountry.loc["Selected Departure Regions"] = gdpPerCountry[gdpPerCountry.index.isin(countryList)].sum().tolist()
         per_group_annual_gdp = per_group_annual.join(gdpPerCountry, on='ADEP_COUNTRY', how='inner')
 
         if 'Yes' in extrapolateRet:

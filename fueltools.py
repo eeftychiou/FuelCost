@@ -314,7 +314,7 @@ def foldInOutermostWithMS(groupSel, outerCheck, per_group_annual):
 
 
 
-def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, fromSel, groupSel, outerCheck, startSummerIATA, yearGDP, fromSelected):
+def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP):
     # Calculate the aggregates per IATA season basis
     # Summer
     per_group_summer = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) & (
@@ -364,7 +364,8 @@ def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGr
     sel_ms_Annual.loc[:, sel_ms_Annual.columns.str.contains('mean|std|%')] = sel_ms_Annual.loc[:, sel_ms_Annual.columns.str.contains('mean|std|%')] / 12
 
     # add record of selected region to dataframe
-    per_group_annual.loc[fromSelected] = (int(sel_ms_Annual.loc['SAF_COST', 'count']),
+    tag = 'Selected Departure Region'
+    per_group_annual.loc[tag] = (int(sel_ms_Annual.loc['SAF_COST', 'count']),
                                           sel_ms_Annual.loc['Actual_Distance_Flown', 'mean'],
                                           sel_ms_Annual.loc['Actual_Distance_Flown', 'std'],
                                           sel_ms_Annual.loc['Actual_Distance_Flown', 'sum'],
@@ -405,13 +406,13 @@ def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGr
                                           )
 
     per_group_annual = per_group_annual.dropna()
-    per_group_annual = foldInOutermostWithMS(groupSel, outerCheck, per_group_annual)
+    #per_group_annual = foldInOutermostWithMS(groupSel, outerCheck, per_group_annual)
     # Calculate Flight Growth. Use 2024 as the baseline which is the estimate time traffic will return to prepandemic levels
     if yearGDP > 2024:
         per_group_annual.loc[:, ~per_group_annual.columns.str.contains('mean|std|%|COUNTRY|EMISSIONS|Actual')] = per_group_annual.loc[:, ~per_group_annual.columns.str.contains('mean|std|%|COUNTRY|EMISSIONS|Actual')] * (1 + flightGrowth / 100) ** (yearGDP - 2024)
     # Calculate Emissions Growth
     per_group_annual['EMISSIONS_sum'] = per_group_annual["EMISSIONS_sum"] * (1 + emissionsGrowth / 100) ** (yearGDP - 2024)
-    per_group_annual['EMISSIONS_Percent'] = per_group_annual['EMISSIONS_sum'] / per_group_annual.loc[fromSelected, 'EMISSIONS_sum'] * 100
+    per_group_annual['EMISSIONS_Percent'] = per_group_annual['EMISSIONS_sum'] / per_group_annual.loc[tag, 'EMISSIONS_sum'] * 100
     # prepare dataframe for presentation
     per_group_annual = per_group_annual.reset_index()
     per_group_annual = per_group_annual.sort_values(by=['SAF_COST_mean'], ascending=False)
