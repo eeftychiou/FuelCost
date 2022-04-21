@@ -201,10 +201,29 @@ def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, 
                '(ADEP_COUNTRY=="Réunion" & ADES_COUNTRY=="France") | ' \
                '(ADEP_COUNTRY=="West Indies" & ADES_COUNTRY=="France") '
 
-    flights_df.loc[flights_df.eval(OMSubset), 'ETS_COST'] = flights_df.query(OMSubset)['FUEL'] * 3.15 * (1 - safBlendingMandate) * ETSPricePerKg * ETSpercentage / 100
+    flights_df.loc[flights_df.eval(OMSubset), 'ETS_COST'] = 0.0
+
+    #ETS for flights from Outermost regions to home state
+    OMSubset = '(ADEP_COUNTRY=="Canary Islands" & ADES_COUNTRY=="Canary Islands") | ' \
+               '(ADEP_COUNTRY=="Azores" & ADES_COUNTRY=="Azores") | ' \
+               '(ADEP_COUNTRY=="Madeira" & ADES_COUNTRY=="Madeira") | ' \
+               '(ADEP_COUNTRY=="French Guiana" & ADES_COUNTRY=="French Guiana") | ' \
+               '(ADEP_COUNTRY=="Réunion" & ADES_COUNTRY=="Réunion") | ' \
+               '(ADEP_COUNTRY=="West Indies" & ADES_COUNTRY=="West Indies") '
 
     return flights_df
 
+def calculateCustom(all_flights_df, custCriteria, custField, custValue):
+
+    # (ADEP_COUNTRY=="Cyprus" & ADES_COUNTRY=="Greece") | (ADEP_COUNTRY=="Greece" & ADES_COUNTRY=="Cyprus")    ETS_COST
+    if custCriteria:
+        all_flights_df.loc[all_flights_df.eval(custCriteria), custField] = float(custValue)
+        all_flights_df = CalculateTotalFuelCost(all_flights_df)
+        all_flights_df['FIT55_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST']
+        all_flights_df['TOTAL_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST'] + all_flights_df['FUEL_COST']
+
+
+    return all_flights_df
 
 def get_dd_selection(fromSelection, DepOrDes):
     fromSelection_value = fromSelection + ['!' + x for x in fromSelection]
@@ -324,6 +343,103 @@ def foldInOutermostWithMS(groupSel, outerCheck, per_group_annual):
     return per_group_annual
 
 
+def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP):
+
+    #Adjust Groupsel
+    if groupSel in ['ADEP_COUNTRY', 'ADEP', 'AC_Operator']:
+        groupSel = [groupSel]
+        tag = 'Selection'
+    elif groupSel == 'ADEP_COUNTRY_PAIR':
+        groupSel=[groupSel.replace('_PAIR',''), groupSel.replace('_PAIR','').replace('ADEP', 'ADES')]
+        tag = ('Selection' , 'Selection')
+    else:
+        raise ValueError("Invalid grouping option")
+
+
+    countries = pd.concat([flights_filtered_df['ADEP_COUNTRY'] , flights_filtered_df['ADEP_COUNTRY']]).unique()
+    Summer= pd.DataFrame()
+    Winter = pd.DataFrame()
+    for country in countries:
+        res = flights_filtered_df[
+            (flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) &
+            (flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA) &
+            ((flights_filtered_df['ADEP_COUNTRY'] == country) | (flights_filtered_df['ADES_COUNTRY']==country))][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
+            .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
+                  'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']}).unstack(fill_value=None)
+        res = res.to_frame(name=country)
+        Summer = pd.concat([Summer, res], axis =1)
+
+        res = flights_filtered_df[
+            ((flights_filtered_df['FILED_OFF_BLOCK_TIME'] < startSummerIATA) | (
+            flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA)) &
+            ((flights_filtered_df['ADEP_COUNTRY'] == country) | (flights_filtered_df['ADES_COUNTRY']==country))][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
+            .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
+                  'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']}).unstack(fill_value=None)
+        res = res.to_frame(name=country)
+        Winter = pd.concat([Winter, res], axis =1)
+
+    Winter = Winter.T
+    Summer = Summer.T
+    # Extrapolate each season, summer and winter, according to the determined ration of the dataset
+    Summer.columns = ["_".join(a) for a in Summer.columns.to_flat_index()]
+    Winter.columns = ["_".join(a) for a in Winter.columns.to_flat_index()]
+
+
+    # exclude statistical components which cannot be extrapolated
+    Summer.loc[:, ~Summer.columns.str.contains('mean|std|%')] = Summer.loc[:, ~Summer.columns.str.contains('mean|std|%')] / dfRatio[0]
+    Winter.loc[:, ~Winter.columns.str.contains('mean|std|%')] = Winter.loc[:, ~Winter.columns.str.contains('mean|std|%')] / dfRatio[1]
+    Annual = ((Summer * 7) + (Winter * 5))
+    Annual.loc[:, Annual.columns.str.contains('mean|std|%')] = Annual.loc[:, Annual.columns.str.contains('mean|std|%')] / 12
+
+    #determine statistics of selected region
+    selSummer = flights_filtered_df[
+        (flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) &
+        (flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
+        .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
+              'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']}).unstack(fill_value=None)
+    selSummer = selSummer.to_frame(name="Selection").T
+
+    selWinter = flights_filtered_df[
+        ((flights_filtered_df['FILED_OFF_BLOCK_TIME'] < startSummerIATA) | (
+                flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA))][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
+        .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
+              'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']}).unstack(fill_value=None)
+    selWinter = selWinter.to_frame(name="Selection").T
+
+    # exclude statistical components which cannot be extrapolated
+    selSummer.columns = ["_".join(a) for a in selSummer.columns.to_flat_index()]
+    selWinter.columns = ["_".join(a) for a in selWinter.columns.to_flat_index()]
+    selSummer.loc[:, ~selSummer.columns.str.contains('mean|std|%')] = selSummer.loc[:, ~selSummer.columns.str.contains('mean|std|%')] / dfRatio[0]
+    selWinter.loc[:, ~selWinter.columns.str.contains('mean|std|%')] = selWinter.loc[:, ~selWinter.columns.str.contains('mean|std|%')] / dfRatio[1]
+    selAnnual = ((selSummer * 7) + (selWinter * 5))
+    selAnnual.loc[:, selAnnual.columns.str.contains('mean|std|%')] = selAnnual.loc[:, selAnnual.columns.str.contains('mean|std|%')] / 12
+
+    Annual=pd.concat([Annual,selAnnual])
+
+
+    Annual = Annual.dropna(axis=1)
+    #per_group_annual = foldInOutermostWithMS(groupSel, outerCheck, per_group_annual)
+    # Calculate Flight Growth. Use 2024 as the baseline which is the estimate time traffic will return to prepandemic levels
+    if yearGDP > 2024:
+        Annual.loc[:, ~Annual.columns.str.contains('mean|std|%|COUNTRY|EMISSIONS|Actual')] = Annual.loc[:, ~Annual.columns.str.contains('mean|std|%|COUNTRY|EMISSIONS|Actual')] * (1 + flightGrowth / 100) ** (yearGDP - 2024)
+    # Calculate Emissions Growth
+    Annual['EMISSIONS_sum'] = Annual["EMISSIONS_sum"] * (1 + emissionsGrowth / 100) ** (yearGDP - 2024)
+    Annual['EMISSIONS_Percent'] = (Annual['EMISSIONS_sum'] /2.0) / Annual.loc[tag, 'EMISSIONS_sum'] * 100
+    # prepare dataframe for presentation
+    #per_group_annual = per_group_annual.reset_index()
+    Annual = Annual.sort_values(by=['SAF_COST_mean'], ascending=False)
+    Annual = Annual.round(2)
+    Annual['ECTRL_ID_size'] = Annual['ECTRL_ID_size'].astype(int)
+    Annual = Annual.rename(columns={'ECTRL_ID_size': 'Flights_size'})
+    Annual.index.name = 'ADEP_COUNTRY'
+
+    return Annual
+
+
+
+
+
+
 
 def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP):
 
@@ -371,6 +487,7 @@ def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGr
     per_group_winter.loc[:, ~per_group_winter.columns.str.contains('mean|std|%')] = per_group_winter.loc[:, ~per_group_winter.columns.str.contains('mean|std|%')] / dfRatio[1]
     per_group_annual = ((per_group_summer * 7) + (per_group_winter * 5))
     per_group_annual.loc[:, per_group_annual.columns.str.contains('mean|std|%')] = per_group_annual.loc[:, per_group_annual.columns.str.contains('mean|std|%')] / 12
+
     # Calculate from selected region averages, eg EU_EEA_EFTA
     sel_avg_quantiles_sum = flights_filtered_df[(flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) & (
             flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)][['Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST','FIT55_COST', 'TOTAL_COST']].describe()

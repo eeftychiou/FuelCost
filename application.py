@@ -108,6 +108,11 @@ app.layout = html.Div([
             html.P('Enter additional comma delimited Destination Country codes', style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Input(id="toSelAdd", type="text", placeholder='', value='', debounce=True),
 
+            html.P('Enter Custom Criteria, Field to update and Value', style={"height": "auto", "margin-bottom": "auto"}),
+            dcc.Input(id="custCriteria", type="text", placeholder='', value='', debounce=True),
+            dcc.Input(id="custField", type="text", placeholder='', value='', debounce=True),
+            dcc.Input(id="custValue", type="text", placeholder='', value='', debounce=True),
+
             html.P('Select Market Segment', style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Dropdown(
                 id='marketSelection',
@@ -155,9 +160,9 @@ app.layout = html.Div([
         html.Div([
             dcc.Tabs([
             dcc.Tab(label='Results', children=[
-            html.P('Countries in Dataset', style={"height": "auto", "margin-bottom": "auto"}),
+            html.P(id = "option1text",children=["From Country"] , style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Dropdown(id='SelectedOptions', multi=True, clearable=False,searchable=True),
-            html.P('Compare With', style={"height": "auto", "margin-bottom": "auto"}),
+            html.P(id = "option2text",children=["To Country"], style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Dropdown(id='CompareOption', multi=False, clearable=False, searchable=True,  disabled= True),
             dcc.Graph(
                 id='Cost_graph',
@@ -263,11 +268,15 @@ application = app.server
      dash.dependencies.Input('submitButton', 'n_clicks'),
      dash.dependencies.State('extrapolateRet', 'value'),
      dash.dependencies.State('flightGrowth', 'value'),
-     dash.dependencies.State('emGrowth', 'value')
+     dash.dependencies.State('emGrowth', 'value'),
+     dash.dependencies.State('custCriteria', 'value'),
+     dash.dependencies.State('custField', 'value'),
+     dash.dependencies.State('custValue', 'value')
+
      ])
 def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPrice, blending, jetPrice, taxRate,
                  emissionsPercent, emissionsPrice, yearSelected, groupSel,
-                 yearGDP, gdpGrowth, nclicks, extrapolateRet, flightGrowth, emissionsGrowth):
+                 yearGDP, gdpGrowth, nclicks, extrapolateRet, flightGrowth, emissionsGrowth, custCriteria, custField, custValue):
 
 
     if fromSelAdd:
@@ -316,10 +325,10 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
     #     toQuery   = toSel
 
     if toSel:
-        dfquery =  fromQuery  + ' & ' + toQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))' #+ ' & '  + 'STATFOR_Market_Segment in @market'
+        dfquery =  fromQuery  + ' & ' + toQuery #+ ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))' #+ ' & '  + 'STATFOR_Market_Segment in @market'
         allFlightsQuery = '(' + fromQuery + ' | ' + toQuery + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
     else:
-        dfquery = fromQuery + ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'  #+ ' & ' + 'STATFOR_Market_Segment in @market'
+        dfquery = fromQuery #+ ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'  #+ ' & ' + 'STATFOR_Market_Segment in @market'
         allFlightsQuery = fromQuery + ' & ' + 'STATFOR_Market_Segment in @market'
 
 
@@ -340,6 +349,8 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
     all_flights_df['FIT55_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST']
     all_flights_df['TOTAL_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST'] + all_flights_df['FUEL_COST']
 
+    all_flights_df = ft.calculateCustom(all_flights_df, custCriteria, custField, custValue)
+
     flights_filtered_df = all_flights_df.query(dfquery)
 
     startSummerIATA, endSummerIATA = ft.getIATASeasons(yearSelected)
@@ -349,8 +360,9 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
     heatmap_df  = ft.calculatePairs(dfRatio, endSummerIATA, groupSel, flights_filtered_df, startSummerIATA)
 
     #fromSelected = [k['label'] for k in fromSelDict if k['value'] == fromSel][0]
+    per_group_annual = ft.Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP)
 
-    per_group_annual = ft.  calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP)
+    #per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP)
 
 
     #GDP Calculations
@@ -375,18 +387,19 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
         gdpPerCountry.loc["Selection"] = gdpPerCountry[gdpPerCountry.index.isin(countryList)].sum().tolist()
         countryList.add("Selection")
         gdpPerCountry = gdpPerCountry.loc[gdpPerCountry.index.isin(countryList)]
-        per_group_annual_gdp = per_group_annual.join(gdpPerCountry, on='ADEP_COUNTRY', how='inner')
+        per_group_annual_gdp = per_group_annual.join(gdpPerCountry, how='inner')
 
         if 'Yes' in extrapolateRet:
             retMult = 2
         else:
             retMult = 1
 
-        per_group_annual_gdp['TOTAL_GDP_RATIO'] = (per_group_annual_gdp['TOTAL_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
-        per_group_annual_gdp['FIT55_GDP_RATIO'] = (per_group_annual_gdp['FIT55_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
-        per_group_annual_gdp['SAF_GDP_RATIO'] = (per_group_annual_gdp['SAF_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
-        per_group_annual_gdp['ETS_GDP_RATIO'] = (per_group_annual_gdp['ETS_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
-        per_group_annual_gdp['TAX_GDP_RATIO'] = (per_group_annual_gdp['TAX_COST_sum']*retMult / per_group_annual_gdp[yearGDP]) * 100
+        per_group_annual_gdp['TOTAL_GDP_RATIO'] = (per_group_annual_gdp['TOTAL_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
+        per_group_annual_gdp['FIT55_GDP_RATIO'] = (per_group_annual_gdp['FIT55_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
+        per_group_annual_gdp['SAF_GDP_RATIO'] = (per_group_annual_gdp['SAF_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
+        per_group_annual_gdp['ETS_GDP_RATIO'] = (per_group_annual_gdp['ETS_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
+        per_group_annual_gdp['TAX_GDP_RATIO'] = (per_group_annual_gdp['TAX_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
+
     elif groupSel == 'ADEP':
         # TODO calculate the overall traffic for airport and determine the traffic affected by the measures vs not affected
         # Only filter on Market segment, ignore departure/destination filters
@@ -697,19 +710,25 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
                y=cost_df['SAF_COST_mean'],
                # error_y=dict(type='data', array=per_ms_Annual_out['SAF_COST_std'].to_list()), text=per_ms_Annual_out['SAF_COST_mean']
                width=0.3,
-               offset=-0.3
+               offset=-0.3,
+               text=cost_df['SAF_COST_mean'],
+               textposition='auto',
                ),
         go.Bar(name='TAX',
                x=cost_df.index,
                y=cost_df['TAX_COST_mean'],
                width=0.3,
-               offset=-0.3
+               offset=-0.3,
+               text=cost_df['TAX_COST_mean'],
+               textposition='auto',
                ),
         go.Bar(name='ETS',
                x=cost_df.index,
                y=cost_df['ETS_COST_mean'],
                width=0.3,
-               offset=-0.3
+               offset=-0.3,
+               text=cost_df['ETS_COST_mean'],
+               textposition='auto',
                ),
         go.Bar(name='JET A1',
                x=cost_df.index,
