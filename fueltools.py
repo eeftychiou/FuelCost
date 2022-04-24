@@ -397,14 +397,14 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
         (flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA)][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
         .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
               'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']}).unstack(fill_value=None)
-    selSummer = selSummer.to_frame(name="Selection").T
+    selSummer = selSummer.to_frame(name=tag).T
 
     selWinter = flights_filtered_df[
         ((flights_filtered_df['FILED_OFF_BLOCK_TIME'] < startSummerIATA) | (
                 flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA))][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
         .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
               'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']}).unstack(fill_value=None)
-    selWinter = selWinter.to_frame(name="Selection").T
+    selWinter = selWinter.to_frame(name=tag).T
 
     # exclude statistical components which cannot be extrapolated
     selSummer.columns = ["_".join(a) for a in selSummer.columns.to_flat_index()]
