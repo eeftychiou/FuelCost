@@ -95,7 +95,7 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='fromSelection', multi=True,
                 options=fromSelDict,
-                value=[fromSelDict[3]['value']], clearable = False
+                value=[fromSelDict[4]['value']], clearable = False
             ),
             html.P('Enter additional comma delimited Departure Country codes', style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Input(id="fromSelAdd", type="text", placeholder='', value='', debounce=True),
