@@ -343,7 +343,7 @@ def foldInOutermostWithMS(groupSel, outerCheck, per_group_annual):
     return per_group_annual
 
 
-def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP):
+def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel,  startSummerIATA, yearGDP):
 
     #Adjust Groupsel
     if groupSel in ['ADEP_COUNTRY', 'ADEP', 'AC_Operator']:
@@ -417,7 +417,7 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
     Annual=pd.concat([Annual,selAnnual])
 
 
-    Annual = Annual.dropna(axis=1)
+    Annual = Annual.dropna(axis=1, how='all')
     #per_group_annual = foldInOutermostWithMS(groupSel, outerCheck, per_group_annual)
     # Calculate Flight Growth. Use 2024 as the baseline which is the estimate time traffic will return to prepandemic levels
     if yearGDP > 2024:
@@ -427,7 +427,7 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
     Annual['EMISSIONS_Percent'] = (Annual['EMISSIONS_sum'] /2.0) / Annual.loc[tag, 'EMISSIONS_sum'] * 100
     # prepare dataframe for presentation
     #per_group_annual = per_group_annual.reset_index()
-    Annual = Annual.sort_values(by=['SAF_COST_mean'], ascending=False)
+    Annual = Annual.sort_values(by=['FIT55_COST_mean'], ascending=False)
     Annual = Annual.round(2)
     Annual['ECTRL_ID_size'] = Annual['ECTRL_ID_size'].astype(int)
     Annual = Annual.rename(columns={'ECTRL_ID_size': 'Flights_size'})
@@ -441,7 +441,7 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
 
 
 
-def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP):
+def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, startSummerIATA, yearGDP):
 
     #Adjust Groupsel
     if groupSel in ['ADEP_COUNTRY', 'ADEP', 'AC_Operator']:
@@ -556,7 +556,7 @@ def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGr
     per_group_annual['EMISSIONS_Percent'] = per_group_annual['EMISSIONS_sum'] / per_group_annual.loc[tag, 'EMISSIONS_sum'] * 100
     # prepare dataframe for presentation
     #per_group_annual = per_group_annual.reset_index()
-    per_group_annual = per_group_annual.sort_values(by=['SAF_COST_mean'], ascending=False)
+    per_group_annual = per_group_annual.sort_values(by=['FIT55_COST_mean'], ascending=False)
     per_group_annual = per_group_annual.round(2)
     per_group_annual['ECTRL_ID_size'] = per_group_annual['ECTRL_ID_size'].astype(int)
     per_group_annual = per_group_annual.rename(columns={'ECTRL_ID_size': 'Flights_size'})
