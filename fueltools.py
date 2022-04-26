@@ -441,7 +441,7 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
 
 
 
-def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, outerCheck, startSummerIATA, yearGDP):
+def calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, startSummerIATA, yearGDP):
 
     #Adjust Groupsel
     if groupSel in ['ADEP_COUNTRY', 'ADEP', 'AC_Operator']:
