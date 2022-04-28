@@ -449,7 +449,7 @@ def update_per_airport(SelectedOptions, gdp_df, groupSelection, cost_df, heatmap
     heatmap_df = heatmap_df.loc[finalCols,finalCols]
     #heatmap_df = heatmap_df.dropna(axis=1)
 
-
+    cost_df = cost_df.sort_values(by=['FIT55_COST_mean'], ascending=False)
 
     data = [
         go.Bar(name='SAF',
@@ -589,6 +589,7 @@ def update_per_operator(SelectedOptions, gdp_df, groupSel, cost_df, heatmap_df):
     # finalCols = list(colset.intersection(dffcols))
     # heatmap_df = heatmap_df.loc[:,finalCols]
     # #heatmap_df = heatmap_df.dropna(axis=1)
+    cost_df = cost_df.sort_values(by=['FIT55_COST_mean'], ascending=False)
 
     data = [
         go.Bar(name='SAF',
@@ -934,5 +935,5 @@ app.index_string = """<!DOCTYPE html>
 </html>"""
 
 if __name__ == '__main__':
-   app.run_server(debug=True)
-   #application.run()
+   #app.run_server(debug=True)
+   application.run()
