@@ -109,20 +109,21 @@ def loadPickle(year, month):
 # SafBlendingMandate = 0.02
 # **************************************** #
 
-def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.02, subSet=None  ):
+def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.02 ):
 
     # We only care for departure flight
-    subSet = subSet + ' & ADEP_SAF=="Y"'
+    subSet = 'ADEP_SAF=="Y"'
 
     flights_df=flights_df.assign(SAF_COST=0.0)
     flights_df.loc[flights_df.eval(subSet),'SAF_COST'] = flights_df.query(subSet)['FUEL'] * safBlendingMandate * costOfSafFuelPerKg
 
     return flights_df
 
-def CalculateFuelCost(flights_df, costOfJetFuelPerKg = 0.81, safBlendingMandate = 0.02, subSet=None):
+def CalculateFuelCost(flights_df, costOfJetFuelPerKg = 0.81, safBlendingMandate = 0.02):
 
     flights_df = flights_df.assign(FUEL_COST=0.0)
     flights_df['FUEL_COST'] = flights_df['FUEL'] * costOfJetFuelPerKg
+    subSet = 'ADEP_SAF=="Y"'
     flights_df.loc[flights_df.eval(subSet),'FUEL_COST'] = flights_df.query(subSet)['FUEL']*(1-safBlendingMandate) * costOfJetFuelPerKg
     return flights_df
 
@@ -159,7 +160,7 @@ def getIATASeasons(setyear):
     return startSummer, endSummer
 
 
-def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=0.00, subSet=None ):
+def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=0.00 ):
     # *************************************************** #
     # Constants for Fuel TAX Calculations
     # all prices are in Euros/GJ
@@ -178,32 +179,38 @@ def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=
     # *************************************************** #
 
     # Tax only for intra EU flights so ADEP and ADES must be Y
-    subSet = subSet + ' & (ADEP_ETD=="Y" & ADES_ETD=="Y")'
+    subSet = '(ADEP_ETD=="Y" & ADES_ETD=="Y" & STATFOR_Market_Segment!="All-Cargo")'
     flights_df = flights_df.assign(TAX_COST= 0.0)
     flights_df.loc[flights_df.eval(subSet),'TAX_COST'] = flights_df.query(subSet)['FUEL'] * (1-blendingMandate) * FuelTaxRateUsdPerKg
 
     return flights_df
 
-def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, ETSpercentage = 50 , subSet=None):
+def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, ETSpercentage = 50 ):
 
     ETSPricePerKg = ETSCostpertonne/1000 * EurosToUsdExchangeRate
 
     # ETS only for intra EU flights so ADEP and ADES must be Y
-    ETSsubSet = subSet + ' & (ADEP_ETS=="Y" & ADES_ETS=="Y")'
+    ETSsubSet = '(ADEP_ETS=="Y" & ADES_ETS=="Y")'
     flights_df = flights_df.assign(ETS_COST = 0.0 )
     flights_df.loc[flights_df.eval(ETSsubSet),'ETS_COST'] = flights_df.query(ETSsubSet)['FUEL'] * 3.15 * (1-safBlendingMandate) * ETSPricePerKg * ETSpercentage/100
 
     #ETS for flights from Outermost regions to home state
     OMSubset = '(ADEP_COUNTRY=="Canary Islands" & ADES_COUNTRY=="Spain") | ' \
+               '(ADEP_COUNTRY=="Spain" & ADES_COUNTRY=="Canary Islands") | ' \
                '(ADEP_COUNTRY=="Azores" & ADES_COUNTRY=="Portugal") | ' \
+               '(ADEP_COUNTRY=="Portugal" & ADES_COUNTRY=="Azores") | ' \
                '(ADEP_COUNTRY=="Madeira" & ADES_COUNTRY=="Portugal") | ' \
+               '(ADEP_COUNTRY=="Portugal" & ADES_COUNTRY=="Madeira") | ' \
                '(ADEP_COUNTRY=="French Guiana" & ADES_COUNTRY=="France") | ' \
+               '(ADEP_COUNTRY=="France" & ADES_COUNTRY=="French Guiana") | ' \
                '(ADEP_COUNTRY=="Réunion" & ADES_COUNTRY=="France") | ' \
-               '(ADEP_COUNTRY=="West Indies" & ADES_COUNTRY=="France") '
+               '(ADEP_COUNTRY=="France" & ADES_COUNTRY=="Réunion") | ' \
+               '(ADEP_COUNTRY=="West Indies" & ADES_COUNTRY=="France") |' \
+               '(ADEP_COUNTRY=="France" & ADES_COUNTRY=="West Indies") '
 
     flights_df.loc[flights_df.eval(OMSubset), 'ETS_COST'] = 0.0
 
-    #ETS for flights from Outermost regions to home state
+    #ETS for flights from home state to outermost region
     OMSubset = '(ADEP_COUNTRY=="Canary Islands" & ADES_COUNTRY=="Canary Islands") | ' \
                '(ADEP_COUNTRY=="Azores" & ADES_COUNTRY=="Azores") | ' \
                '(ADEP_COUNTRY=="Madeira" & ADES_COUNTRY=="Madeira") | ' \
@@ -343,7 +350,7 @@ def foldInOutermostWithMS(groupSel, outerCheck, per_group_annual):
     return per_group_annual
 
 
-def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel,  startSummerIATA, yearGDP):
+def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel,  startSummerIATA, yearGDP, countries):
 
     #Adjust Groupsel
     if groupSel in ['ADEP_COUNTRY', 'ADEP', 'AC_Operator']:
@@ -356,7 +363,7 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
         raise ValueError("Invalid grouping option")
 
 
-    countries = pd.concat([flights_filtered_df['ADEP_COUNTRY'] , flights_filtered_df['ADEP_COUNTRY']]).unique()
+    #countries = pd.concat([flights_filtered_df['ADEP_COUNTRY'] , flights_filtered_df['ADES_COUNTRY']]).unique()
     Summer= pd.DataFrame()
     Winter = pd.DataFrame()
     for country in countries:

@@ -29,7 +29,7 @@ regions_df = pd.read_excel('data/ICAOPrefix.xlsx')
 
 #default from selection
 
-fromSelection = regions_df.columns[6:].tolist()
+fromSelection = regions_df.columns[7:].tolist()
 defFromSelection = fromSelection[3]
 
 finalDf=flights_df
@@ -95,7 +95,7 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='fromSelection', multi=True,
                 options=fromSelDict,
-                value=[fromSelDict[4]['value']], clearable = False
+                value=[fromSelDict[3]['value']], clearable = False
             ),
             html.P('Enter additional comma delimited Departure Country codes', style={"height": "auto", "margin-bottom": "auto"}),
             dcc.Input(id="fromSelAdd", type="text", placeholder='', value='', debounce=True),
@@ -302,27 +302,12 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
         toQuery = '(' + ' | '.join(toSel) + ')'
 
 
-    # Add market region to queries
-    # fromQuery = fromQuery + ' & ' + 'STATFOR_Market_Segment in @market'
-    # toQuery = toQuery + ' & ' + 'STATFOR_Market_Segment in @market'
-
-    # #Build 1st subset level query based on input values
-    # if outerCheck=='OUTER_CLOSE':
-    #     fromQuery = '(' + fromSel + ' | ' + '(ADEP_OUTER_CLOSE=="Y"))'
-    #     toQuery = toSel
-    # elif outerCheck=='OUTERMOST_REGIONS':
-    #     fromQuery = '(' + fromSel + ' | ' + '(ADEP_OUTERMOST_REGIONS=="Y"))'
-    #     toQuery   = toSel
-    # else:
-    #     fromQuery =  fromSel
-    #     toQuery   = toSel
-
     if toSel:
-        dfquery =  fromQuery  + ' & ' + toQuery #+ ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))' #+ ' & '  + 'STATFOR_Market_Segment in @market'
+        dfquery =  fromQuery  + ' & ' + toQuery + ' & '  + 'STATFOR_Market_Segment in @market'
         allFlightsQuery = '(' + fromQuery + ' | ' + toQuery + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
     else:
-        dfquery = fromQuery #+ ' & ' 'not ((ADEP_OUTERMOST_REGIONS == "Y"  &  ADES_OUTERMOST_REGIONS == "Y" ))'  #+ ' & ' + 'STATFOR_Market_Segment in @market'
-        allFlightsQuery = fromQuery + ' & ' + 'STATFOR_Market_Segment in @market'
+        dfquery = '(' + fromQuery + ' | ' + fromQuery.replace('ADEP', 'ADES') + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
+        allFlightsQuery = '(' + fromQuery + ' | ' + fromQuery.replace('ADEP', 'ADES') + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
 
 
     if 'OUTER_CLOSE' in fromSel:
@@ -332,12 +317,12 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
 
     #1st Level query ADEP/ADES filter
     # market segment filtered already in all_flights_df
-    all_flights_df = finalDf[yearSelected].query(allFlightsQuery)
-    all_flights_df = ft.CalculateSAFCost(all_flights_df, costOfSafFuelPerKg = safPrice, safBlendingMandate = blending/100, subSet=dfquery)
-    all_flights_df = ft.CalculateFuelCost(all_flights_df, costOfJetFuelPerKg = jetPrice, safBlendingMandate = blending/100, subSet=dfquery)
+    all_flights_df = finalDf[yearSelected]#.query(allFlightsQuery)
+    all_flights_df = ft.CalculateSAFCost(all_flights_df, costOfSafFuelPerKg = safPrice, safBlendingMandate = blending/100)
+    all_flights_df = ft.CalculateFuelCost(all_flights_df, costOfJetFuelPerKg = jetPrice, safBlendingMandate = blending/100)
     all_flights_df = ft.CalculateTotalFuelCost(all_flights_df)
-    all_flights_df = ft.CalculateTaxCost(all_flights_df, FuelTaxRateEurosPerGJ = taxRate, blendingMandate=blending/100, subSet=dfquery )
-    all_flights_df = ft.CalculateETSCost(all_flights_df, safBlendingMandate=blending/100, ETSCostpertonne = emissionsPrice, ETSpercentage = emissionsPercent, subSet=dfquery )
+    all_flights_df = ft.CalculateTaxCost(all_flights_df, FuelTaxRateEurosPerGJ = taxRate, blendingMandate=blending/100)
+    all_flights_df = ft.CalculateETSCost(all_flights_df, safBlendingMandate=blending/100, ETSCostpertonne = emissionsPrice, ETSpercentage = emissionsPercent )
 
     all_flights_df['FIT55_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST']
     all_flights_df['TOTAL_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST'] + all_flights_df['FUEL_COST']
@@ -364,7 +349,7 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
     toSelvalue = []
     #Calculate GDP groups for from departure regions
     if groupSel == 'ADEP_COUNTRY':
-        per_group_annual = ft.Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, startSummerIATA, yearGDP)
+
         countryList=set()
         for sel in fromSel:
             countryList = countryList.union(set(regions_df.query(sel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist()))
@@ -372,6 +357,7 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
         for sel in fromSelAdd:
             countryList = countryList.union(set(regions_df.query(sel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist()))
 
+        per_group_annual = ft.Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, startSummerIATA, yearGDP, countryList)
 
         gdpPerCountry.loc["Selection"] = gdpPerCountry[gdpPerCountry.index.isin(countryList)].sum().tolist()
         countryList.add("Selection")
@@ -935,5 +921,5 @@ app.index_string = """<!DOCTYPE html>
 </html>"""
 
 if __name__ == '__main__':
-   #app.run_server(debug=True)
-   application.run()
+   app.run_server(debug=True)
+   #application.run()
