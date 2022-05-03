@@ -195,18 +195,18 @@ def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, 
     flights_df.loc[flights_df.eval(ETSsubSet),'ETS_COST'] = flights_df.query(ETSsubSet)['FUEL'] * 3.15 * (1-safBlendingMandate) * ETSPricePerKg * ETSpercentage/100
 
     #ETS for flights from Outermost regions to home state
-    OMSubset = '(ADEP_COUNTRY=="Canary Islands" & ADES_COUNTRY=="Spain") | ' \
-               '(ADEP_COUNTRY=="Spain" & ADES_COUNTRY=="Canary Islands") | ' \
-               '(ADEP_COUNTRY=="Azores" & ADES_COUNTRY=="Portugal") | ' \
-               '(ADEP_COUNTRY=="Portugal" & ADES_COUNTRY=="Azores") | ' \
-               '(ADEP_COUNTRY=="Madeira" & ADES_COUNTRY=="Portugal") | ' \
-               '(ADEP_COUNTRY=="Portugal" & ADES_COUNTRY=="Madeira") | ' \
-               '(ADEP_COUNTRY=="French Guiana" & ADES_COUNTRY=="France") | ' \
-               '(ADEP_COUNTRY=="France" & ADES_COUNTRY=="French Guiana") | ' \
-               '(ADEP_COUNTRY=="Réunion" & ADES_COUNTRY=="France") | ' \
-               '(ADEP_COUNTRY=="France" & ADES_COUNTRY=="Réunion") | ' \
-               '(ADEP_COUNTRY=="West Indies" & ADES_COUNTRY=="France") |' \
-               '(ADEP_COUNTRY=="France" & ADES_COUNTRY=="West Indies") '
+    OMSubset = '(ADEP_Region=="Canary Islands"  & ADES_COUNTRY=="Spain"             & ADES_Region != "Canary Islands") | ' \
+               '(ADEP_COUNTRY=="Spain"          & ADEP_Region != "Canary Islands"   & ADES_Region == "Canary Islands") | ' \
+               '(ADEP_Region=="Azores"          & ADES_COUNTRY == "Portugal"        & ADES_Region != "Azores" ) | ' \
+               '(ADEP_COUNTRY=="Portugal"       & ADEP_Region !="Azores"            & ADES_Region == "Azores" ) | ' \
+               '(ADEP_Region=="Madeira"         & ADES_COUNTRY == "Portugal"        & ADES_Region != "Madeira") | ' \
+               '(ADEP_COUNTRY=="Portugal"       & ADEP_Region != "Madeira"          & ADES_Region == "Madeira") | ' \
+               '(ADEP_Region=="French Guiana"   & ADES_COUNTRY == "France"          & ADES_Region != "French Guiana") | ' \
+               '(ADEP_COUNTRY=="France"         & ADEP_Region != "French Guiana"    & ADES_Region == "French Guiana") | ' \
+               '(ADEP_Region=="Réunion"         & ADES_COUNTRY == "France"          & ADES_Region != "Réunion") | ' \
+               '(ADEP_COUNTRY=="France"         & ADEP_Region != "Réunion"          & ADES_Region == "Réunion") | ' \
+               '(ADEP_Region=="West Indies"     & ADES_COUNTRY == "France"          & ADES_Region != "West Indies") |' \
+               '(ADEP_COUNTRY=="France"         & ADEP_Region != "West Indies"      & ADES_Region == "West Indies") '
 
     flights_df.loc[flights_df.eval(OMSubset), 'ETS_COST'] = 0.0
 
