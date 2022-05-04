@@ -21,9 +21,17 @@ pp.pre_process()
 
 dataSetSelection = ft.getYears()
 dataYear = max(dataSetSelection)
-flights_df={}
-for yearIn in dataSetSelection:
-    flights_df[yearIn] = pp.loadDefaultDataset(year=yearIn)
+
+
+def load_data():
+
+    flights_df = {}
+    for yearIn in dataSetSelection:
+        flights_df[yearIn] = pp.loadDefaultDataset(year=yearIn)
+    return flights_df
+
+
+finalDf= load_data()
 
 regions_df = pd.read_excel('data/ICAOPrefix.xlsx')
 
@@ -32,7 +40,7 @@ regions_df = pd.read_excel('data/ICAOPrefix.xlsx')
 fromSelection = regions_df.columns[7:].tolist()
 defFromSelection = fromSelection[3]
 
-finalDf=flights_df
+
 
 dataSetPeriod = ft.getMonths(dataYear)
 
@@ -46,7 +54,7 @@ groupByDict = [
     { 'label' : 'Country/Country Pair', 'value': 'ADEP_COUNTRY_PAIR'}
 ]
 
-marketSelection = flights_df[dataYear].STATFOR_Market_Segment.unique().tolist()
+marketSelection = finalDf[dataYear].STATFOR_Market_Segment.unique().tolist()
 
 app.layout = html.Div([
     html.Div([
