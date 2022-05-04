@@ -34,7 +34,7 @@ defFromSelection = fromSelection[3]
 
 finalDf=flights_df
 
-dataSetPeriod = ft.getMonths()
+dataSetPeriod = ft.getMonths(dataYear)
 
 fromSelDict = ft.get_dd_selection(fromSelection, DepOrDes='ADEP')
 toSelDict = ft.get_dd_selection(fromSelection, DepOrDes='ADES')
@@ -381,6 +381,13 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
         per_group_annual_gdp['ETS_GDP_RATIO'] = (per_group_annual_gdp['ETS_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
         per_group_annual_gdp['TAX_GDP_RATIO'] = (per_group_annual_gdp['TAX_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
 
+        # return options filter out less than 365 flights either per MS, airport or airline
+        fromrowNames = per_group_annual.index.get_level_values(0).unique().tolist()
+        # fromrowNames.sort()
+
+        Seloptions = [{'label': i, 'value': i} for i in fromrowNames]
+        Selvalue = [x['value'] for x in Seloptions][:50]
+
     elif groupSel == 'ADEP':
         # TODO calculate the overall traffic for airport and determine the traffic affected by the measures vs not affected
         # Only filter on Market segment, ignore departure/destination filters
@@ -394,23 +401,52 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
         per_group_annual_gdp = per_group_annual_gdp.reset_index()
         per_group_annual_gdp = per_group_annual_gdp.sort_values(by=['FIT55_COST_mean'], ascending=False)
         per_group_annual_gdp = per_group_annual_gdp.round(2)
-        pass
+
+        # return options filter out less than 365 flights either per MS, airport or airline
+        fromrowNames = per_group_annual.query('Flights_size>365').index.get_level_values(0).unique().tolist()
+        # fromrowNames.sort()
+
+        Seloptions = [{'label': i, 'value': i} for i in fromrowNames]
+        Selvalue = [x['value'] for x in Seloptions][:50]
+
     elif groupSel == 'AC_Operator':
         #TODO for AC operator comparison. Calculate ratio of whole operations
         per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, startSummerIATA, yearGDP)
         per_group_annual.index.name = groupSel
         per_group_annual_gdp = per_group_annual.loc[:,['FUEL_sum','Actual_Distance_Flown_sum']]
         per_group_annual_gdp['FUEL_EFF'] = per_group_annual_gdp['FUEL_sum'] / per_group_annual_gdp['Actual_Distance_Flown_sum']
-        pass
+
+        # return options filter out less than 365 flights either per MS, airport or airline
+        fromrowNames = per_group_annual.query('Flights_size>365').index.get_level_values(0).unique().tolist()
+        # fromrowNames.sort()
+
+        Seloptions = [{'label': i, 'value': i} for i in fromrowNames]
+        Selvalue = [x['value'] for x in Seloptions][:50]
     elif groupSel == 'ADEP_COUNTRY_PAIR':
         #TODO GDP for Country Country Pair
         per_group_annual_gdp = pd.DataFrame()
         compareOptiondisabled = False
         per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel, startSummerIATA, yearGDP)
-        torowNames = per_group_annual.query('Flights_size>700').index.get_level_values(1).unique().tolist()
+        #torowNames = per_group_annual.query('Flights_size>700').index.get_level_values(1).unique().tolist()
+        torowNames = per_group_annual.index.get_level_values(1).unique().tolist()
         torowNames.sort()
         toSeloptions = [{'label': i, 'value': i} for i in torowNames]
         toSelvalue = torowNames[0]
+
+        # return options filter out less than 365 flights either per MS, airport or airline
+        countryList=set()
+        for sel in fromSel:
+            countryList = countryList.union(set(regions_df.query(sel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist()))
+            #rowLoc = fromSel.replace('(ADEP_', '').replace('=="Y")', '')
+        for sel in fromSelAdd:
+            countryList = countryList.union(set(regions_df.query(sel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist()))
+
+        fromrowNames = per_group_annual.index.get_level_values(0).unique().tolist()
+        # fromrowNames.sort()
+
+        Seloptions = [{'label': i, 'value': i} for i in fromrowNames]
+        Selvalue = list(set(fromrowNames).intersection(countryList))
+
 
     else:
         raise ValueError('Undefined Grouping')
@@ -423,12 +459,7 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
     ds_gdp = per_group_annual_gdp.to_json(date_format='iso', orient='split')
 
 
-    #return options filter out less than 365 flights either per MS, airport or airline
-    fromrowNames = per_group_annual.query('Flights_size>700').index.get_level_values(0).unique().tolist()
-    #fromrowNames.sort()
 
-    Seloptions =[{'label': i, 'value': i} for i in fromrowNames]
-    Selvalue = [x['value'] for x in Seloptions][:50]
 
     return Seloptions, Selvalue, ds_cost, ds_gdp, ds_heatmap, toSeloptions, toSelvalue,compareOptiondisabled
 
@@ -679,6 +710,7 @@ def update_per_operator(SelectedOptions, gdp_df, groupSel, cost_df, heatmap_df):
 def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
 
     gdp_df = gdp_df.loc[gdp_df.index.isin(SelectedOptions)]
+    datatable = cost_df
     cost_df = cost_df.loc[cost_df.index.isin(SelectedOptions)]
 
     colset=set(SelectedOptions)
@@ -841,9 +873,9 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df):
 
 
     #update table
-    cost_df= cost_df.reset_index()
-    _col=[{"name": i, "id": i} for i in cost_df.columns]
-    datatab=cost_df.to_dict('records')
+    datatable= datatable.reset_index()
+    _col=[{"name": i, "id": i} for i in datatable.columns]
+    datatab=datatable.to_dict('records')
 
 
     return fig, figGDP,figPairs, datatab, _col
