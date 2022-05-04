@@ -9,7 +9,7 @@ from dash import html
 from dash import dash_table
 import plotly.graph_objects as go
 import plotly.express as px
-import dash_bootstrap_components as dbc
+
 
 
 app = dash.Dash(__name__) #external_stylesheets=external_stylesheets)
@@ -219,9 +219,20 @@ app.layout = html.Div([
             html.Div(id='datatable-interactivity-container')
                 ]),
                 dcc.Tab(label='Country Settings', children=[
-                    dbc.Table.from_dataframe(regions_df, striped=True, bordered=True, hover=True,id="table_new"),
-                    dash_table.DataTable(data=regions_df.to_dict('records'),id='Countrytable')
-                ]),
+                dash_table.DataTable(data=regions_df.to_dict('records'),
+                                     columns=[{"name": i, "id": i} for i in regions_df.columns],
+                                     filter_action="native",
+                                     sort_action="native",
+                                     sort_mode="single",
+                                     row_deletable=False,
+                                     selected_columns=[],
+                                     selected_rows=[],
+                                     page_action="native",
+                                     page_current=0,
+                                     page_size=100,
+                                     export_format='csv'
+                                     )
+                 ]),
             ]),
         ], style={'width': '79%', 'float': 'right', 'display': 'inline-block'}),
     # signal value to trigger callbacks
@@ -908,7 +919,7 @@ app.index_string = """<!DOCTYPE html>
         <meta property="og:title" content="Air Transport Fit55 Dashboard"">
         <meta property="og:site_name" content="http://fit55.cyatcu.org">
         <meta property="og:url" content="http://fit55.cyatcu.org">
-        <meta property="article:published_time" content="2020-11-01">
+        <meta property="article:published_time" content="2021-11-01">
     </head>
     <body>
         {%app_entry%}
