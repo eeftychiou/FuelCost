@@ -350,7 +350,7 @@ def foldInOutermostWithMS(groupSel, outerCheck, per_group_annual):
     return per_group_annual
 
 
-def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel,  startSummerIATA, yearGDP, countries):
+def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, flights_filtered_df, groupSel,  startSummerIATA, yearGDP, countries, returnLeg):
 
     #Adjust Groupsel
     if groupSel in ['ADEP_COUNTRY', 'ADEP', 'AC_Operator']:
@@ -363,14 +363,21 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
         raise ValueError("Invalid grouping option")
 
 
+
     #countries = pd.concat([flights_filtered_df['ADEP_COUNTRY'] , flights_filtered_df['ADES_COUNTRY']]).unique()
     Summer= pd.DataFrame()
     Winter = pd.DataFrame()
     for country in countries:
+        if 'Yes' in returnLeg:
+            AdepAdesFilter = ((flights_filtered_df['ADEP_COUNTRY'] == country) | (
+                        flights_filtered_df['ADES_COUNTRY'] == country))
+        else:
+            AdepAdesFilter = ((flights_filtered_df['ADEP_COUNTRY'] == country))
+
         res = flights_filtered_df[
             (flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= startSummerIATA) &
             (flights_filtered_df['FILED_OFF_BLOCK_TIME'] < endSummerIATA) &
-            ((flights_filtered_df['ADEP_COUNTRY'] == country) | (flights_filtered_df['ADES_COUNTRY']==country))][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
+            AdepAdesFilter][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
             .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
                   'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']}).unstack(fill_value=None)
         res = res.to_frame(name=country)
@@ -379,7 +386,7 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
         res = flights_filtered_df[
             ((flights_filtered_df['FILED_OFF_BLOCK_TIME'] < startSummerIATA) | (
             flights_filtered_df['FILED_OFF_BLOCK_TIME'] >= endSummerIATA)) &
-            ((flights_filtered_df['ADEP_COUNTRY'] == country) | (flights_filtered_df['ADES_COUNTRY']==country))][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
+            AdepAdesFilter][['ECTRL_ID', 'Actual_Distance_Flown', 'FUEL', 'EMISSIONS', 'SAF_COST', 'FUEL_COST', 'TOTAL_FUEL_COST', 'TAX_COST', 'ETS_COST', 'FIT55_COST', 'TOTAL_COST']] \
             .agg({'ECTRL_ID': 'size', 'Actual_Distance_Flown': ['mean', 'std', 'sum'], 'FUEL': 'sum', 'EMISSIONS': 'sum', 'SAF_COST': ['mean', 'std', 'sum'], 'FUEL_COST': ['mean', 'std', 'sum'],
                   'TOTAL_FUEL_COST': ['mean', 'std', 'sum'], 'TAX_COST': ['mean', 'std', 'sum'], 'ETS_COST': ['mean', 'std', 'sum'], 'FIT55_COST': ['mean', 'std', 'sum'], 'TOTAL_COST': ['mean', 'std', 'sum']}).unstack(fill_value=None)
         res = res.to_frame(name=country)
