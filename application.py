@@ -62,6 +62,7 @@ app.layout = html.Div([
     html.Div([
         html.H1(children='Analysis of the Fit for 55 legislative proposals on Air Transport'),
 
+
     html.Div([
         html.P('Connect with me on: '),
         html.A(
@@ -86,6 +87,7 @@ app.layout = html.Div([
 
     html.Div([
         html.P('Uses Eurocontrol R&D Archive', style={"height": "auto", "margin-bottom": "auto"}),
+        html.P('Please note that the server hosting the tool is not able to handle many users due to memory constrains.', style={"height": "auto", "margin-bottom": "auto", "color":"red"}),
         html.A("Wiki Page", href="https://github.com/eeftychiou/FuelCost/wiki/Fit55-Impact-Calculator", target="_blank")]),
 
         html.Div([
