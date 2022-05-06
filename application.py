@@ -10,6 +10,7 @@ from dash import dash_table
 import plotly.graph_objects as go
 import plotly.express as px
 from dash.exceptions import PreventUpdate
+import os
 
 
 
@@ -261,7 +262,21 @@ app.layout = html.Div([
                     html.P([]),
                     html.Div([html.Button('Submit', style={"height": "auto", "margin-bottom": "20", "margin-top": "20"},
                                           id='simulationSubmitButton'), ]),
-                    dcc.Store(id='ds_simdata')
+                    dcc.Store(id='ds_simdata'),
+                    dcc.Dropdown(id='simCountrySelection', multi=True, clearable=False,searchable=True),
+                    dcc.Graph(id='simgraph'),
+                    dash_table.DataTable(id="simtableres",
+                                            data=None,
+                                            columns=None,
+                                             editable=False,
+                                             row_deletable=False,
+                                             selected_columns=[],
+                                             selected_rows=[],
+                                             page_action="native",
+                                             page_current=0,
+                                             page_size=100,
+                                             export_format='csv'
+                                             ),
                 ]),
 
             ]),
@@ -957,7 +972,9 @@ def update_graphs(SelectedOptions, ds_cost,ds_gdp, ds_heatmap, groupSelection, C
 
 
 @app.callback(
-    [dash.dependencies.Output('ds_simdata', 'data')
+    [dash.dependencies.Output('ds_simdata', 'data'),
+     dash.dependencies.Output('simCountrySelection', 'options'),
+     dash.dependencies.Output('simCountrySelection', 'value'),
      ],
     [dash.dependencies.State('simTab', 'data'),
      dash.dependencies.State('simTab', 'columns'),
@@ -973,21 +990,52 @@ def simulate_Costs(rows, columns, nclicks):
 
     for index, row in df.iterrows():
 
-        _, _, ds_cost, _, _, _, _,_ = calculate_costsNCB([3,6,9,12], [row['ADEP_REGION']], '', [], '', row['MARKET'].split(','), row['SAFPRICE'], row['BLENDING'], row['JETA1PRICE'],row['TAXRATE'],
+        _, _, cost_df, _, _, _, _,_ = calculate_costsNCB([3,6,9,12], [row['ADEP_REGION']], '', [], '', row['MARKET'].split(','), row['SAFPRICE'], row['BLENDING'], row['JETA1PRICE'],row['TAXRATE'],
                         row['EMISSIONSPERC'], row['EUAPRICE'], 2019 , 'ADEP_COUNTRY',
                         row['YEAR'], row['GDPGR'], 1, [row['RETLEG']], row['FLIGHTGR'], row['EMISSGR'], "", "", "")
 
-        cost_df = pd.read_json(ds_cost, orient='split')
-        cost_df = cost_df.set_index('ADEP_COUNTRY')
+
+        #cost_df = cost_df.set_index('ADEP_COUNTRY')
         cost_df = cost_df[['SAF_COST_sum','ETS_COST_sum','TAX_COST_sum','FIT55_COST_sum']]
         cost_df = pd.concat([cost_df], keys=[row['YEAR']], names=['Year'], axis=1)
         res = pd.concat([res,cost_df], axis=1)
 
+    simCountrySelection= cost_df.index.tolist()
+
+    Seloptions = [{'label': i, 'value': i} for i in simCountrySelection]
+    Selvalue = [x['value'] for x in Seloptions]
+
     ds_simdata = res.reset_index().to_json(date_format='iso', orient='split')
 
+    filename='SimulationResults'
+    f = os.path.join('data', filename+'.pkl')
+    res.to_pickle(f)
+    f = os.path.join('data', filename+'.xlsx')
+    res.to_excel(f)
 
 
-    return ds_simdata
+    return ds_simdata, Seloptions, Selvalue
+
+
+@app.callback(
+    dash.dependencies.Output("simgraph", "figure"),
+    dash.dependencies.Output('simtableres', 'data'),
+    dash.dependencies.Output('simtableres', 'columns'),
+    [dash.dependencies.Input("simCountrySelection", "value"),
+     dash.dependencies.State('ds_simdata', 'data')])
+def update_simgraphs(simCountrySelection, ds_simdata):
+
+    df = pd.read_json(ds_simdata, orient='split')
+    fig =  go.Figure(data=[go.Scatter(x=[], y=[])])
+
+
+    #update table
+    datatable= df.reset_index()
+    _col=[{"name": i, "id": i} for i in datatable.columns]
+    datatab=datatable.to_dict('records')
+
+    return fig, datatab, _col
+
 
 
 def calculate_costsNCB(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPrice, blending, jetPrice, taxRate,
@@ -1040,19 +1088,7 @@ def calculate_costsNCB(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, saf
 
     dfRatio= ft.getDFRatio(set(monthSel))
 
-    heatmap_df  = ft.calculatePairs(dfRatio, endSummerIATA, groupSel, all_flights_df, startSummerIATA)
 
-
-    #GDP Calculations
-    gdpPerCountry = pd.read_csv('data/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2916952.csv', usecols=['COUNTRY', '2016', '2017', '2018', '2019', '2020'], index_col='COUNTRY')
-
-    #calculate GDP Growth
-    gdpPerCountry[yearGDP] = gdpPerCountry['2020'] * (1+ gdpGrowth/100)**(yearGDP-2020)
-
-    compareOptiondisabled = True
-    toSeloptions = []
-    toSelvalue = []
-    #Calculate GDP groups for from departure regions
     if groupSel == 'ADEP_COUNTRY':
 
         countryList=set()
@@ -1064,99 +1100,13 @@ def calculate_costsNCB(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, saf
 
         per_group_annual = ft.Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, all_flights_df, groupSel, startSummerIATA, yearGDP, countryList, returnLeg)
 
-        gdpPerCountry.loc["Selection"] = gdpPerCountry[gdpPerCountry.index.isin(countryList)].sum().tolist()
-        countryList.add("Selection")
-        gdpPerCountry = gdpPerCountry.loc[gdpPerCountry.index.isin(countryList)]
-        per_group_annual_gdp = per_group_annual.join(gdpPerCountry, how='inner')
-
-        per_group_annual_gdp['TOTAL_GDP_RATIO'] = (per_group_annual_gdp['TOTAL_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
-        per_group_annual_gdp['FIT55_GDP_RATIO'] = (per_group_annual_gdp['FIT55_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
-        per_group_annual_gdp['SAF_GDP_RATIO'] = (per_group_annual_gdp['SAF_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
-        per_group_annual_gdp['ETS_GDP_RATIO'] = (per_group_annual_gdp['ETS_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
-        per_group_annual_gdp['TAX_GDP_RATIO'] = (per_group_annual_gdp['TAX_COST_sum'] / per_group_annual_gdp[yearGDP]) * 100
-
-        # return options filter out less than 365 flights either per MS, airport or airline
-        fromrowNames = per_group_annual.index.get_level_values(0).unique().tolist()
-        # fromrowNames.sort()
-
-        Seloptions = [{'label': i, 'value': i} for i in fromrowNames]
-        Selvalue = [x['value'] for x in Seloptions][:50]
-
-    elif groupSel == 'ADEP':
-        # TODO calculate the overall traffic for airport and determine the traffic affected by the measures vs not affected
-        # Only filter on Market segment, ignore departure/destination filters
-        per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, all_flights_df, groupSel, startSummerIATA, yearGDP)
-        # all_per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, all_flights_df,  groupSel,  startSummerIATA, yearGDP)
-        #
-        # per_group_annual_gdp = per_group_annual.div(all_per_group_annual)
-        #
-        # per_group_annual_gdp = per_group_annual_gdp.dropna()
-        #
-        # per_group_annual_gdp = per_group_annual_gdp.reset_index()
-        # per_group_annual_gdp = per_group_annual_gdp.sort_values(by=['FIT55_COST_mean'], ascending=False)
-        # per_group_annual_gdp = per_group_annual_gdp.round(2)
-
-        per_group_annual_gdp = pd.DataFrame()
-        # return options filter out less than 365 flights either per MS, airport or airline
-        fromrowNames = per_group_annual.query('Flights_size>365').index.get_level_values(0).unique().tolist()
-        # fromrowNames.sort()
-
-        Seloptions = [{'label': i, 'value': i} for i in fromrowNames]
-        Selvalue = [x['value'] for x in Seloptions][:50]
-
-    elif groupSel == 'AC_Operator':
-        #TODO for AC operator comparison. Calculate ratio of whole operations
-        per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, all_flights_df, groupSel, startSummerIATA, yearGDP)
-        per_group_annual.index.name = groupSel
-        per_group_annual_gdp = per_group_annual.loc[:,['FUEL_sum','Actual_Distance_Flown_sum']]
-        per_group_annual_gdp['FUEL_EFF'] = per_group_annual_gdp['FUEL_sum'] / per_group_annual_gdp['Actual_Distance_Flown_sum']
-
-        # return options filter out less than 365 flights either per MS, airport or airline
-        fromrowNames = per_group_annual.query('Flights_size>365').index.get_level_values(0).unique().tolist()
-        # fromrowNames.sort()
-
-        Seloptions = [{'label': i, 'value': i} for i in fromrowNames]
-        Selvalue = [x['value'] for x in Seloptions][:50]
-    elif groupSel == 'ADEP_COUNTRY_PAIR':
-        #TODO GDP for Country Country Pair
-        per_group_annual_gdp = pd.DataFrame()
-        compareOptiondisabled = False
-        per_group_annual = ft.calculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, flightGrowth, all_flights_df, groupSel, startSummerIATA, yearGDP)
-        #torowNames = per_group_annual.query('Flights_size>700').index.get_level_values(1).unique().tolist()
-        torowNames = per_group_annual.index.get_level_values(1).unique().tolist()
-        torowNames.sort()
-        toSeloptions = [{'label': i, 'value': i} for i in torowNames]
-        toSelvalue = torowNames[0]
-
-        # return options filter out less than 365 flights either per MS, airport or airline
-        countryList=set()
-        for sel in fromSel:
-            countryList = countryList.union(set(regions_df.query(sel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist()))
-            #rowLoc = fromSel.replace('(ADEP_', '').replace('=="Y")', '')
-        for sel in fromSelAdd:
-            countryList = countryList.union(set(regions_df.query(sel.replace('ADEP_', '')).loc[:, 'COUNTRY'].tolist()))
-
-        fromrowNames = per_group_annual.index.get_level_values(0).unique().tolist()
-        # fromrowNames.sort()
-
-        Seloptions = [{'label': i, 'value': i} for i in fromrowNames]
-        Selvalue = list(set(fromrowNames).intersection(countryList))
-
-
     else:
         raise ValueError('Undefined Grouping')
 
-    if heatmap_df is None:
-        heatmap_df = pd.DataFrame()
-
-    ds_heatmap = heatmap_df.to_json(date_format='iso', orient='split')
-    ds_cost = per_group_annual.reset_index().to_json(date_format='iso', orient='split')
-    ds_gdp = per_group_annual_gdp.to_json(date_format='iso', orient='split')
 
 
 
-
-    return Seloptions, Selvalue, ds_cost, ds_gdp, ds_heatmap, toSeloptions, toSelvalue,compareOptiondisabled
+    return None, None, per_group_annual, None, None, None, None,None
 
 
 app.index_string = """<!DOCTYPE html>
