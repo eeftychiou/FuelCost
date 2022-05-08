@@ -109,13 +109,13 @@ def loadPickle(year, month):
 # SafBlendingMandate = 0.02
 # **************************************** #
 
-def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.02 ):
+def CalculateSAFCost(flights_df, costOfSafFuelPerKg = 3.66, safBlendingMandate = 0.02, jetPrice = 0.81 ):
 
     # We only care for departure flight
     subSet = 'ADEP_SAF=="Y"'
 
     flights_df=flights_df.assign(SAF_COST=0.0)
-    flights_df.loc[flights_df.eval(subSet),'SAF_COST'] = flights_df.query(subSet)['FUEL'] * safBlendingMandate * costOfSafFuelPerKg
+    flights_df.loc[flights_df.eval(subSet),'SAF_COST'] = (flights_df.query(subSet)['FUEL'] * safBlendingMandate * costOfSafFuelPerKg) - (flights_df.query(subSet)['FUEL'] * safBlendingMandate * jetPrice)
 
     return flights_df
 

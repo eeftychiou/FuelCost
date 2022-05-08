@@ -57,6 +57,11 @@ groupByDict = [
     { 'label' : 'Country/Country Pair', 'value': 'ADEP_COUNTRY_PAIR'}
 ]
 
+simAnalysisOptionsDict = [
+    { 'label' : 'Series'   , 'value': 'SERIES'},
+    { 'label' : 'Cumulative' , 'value': 'CUMULATIVE'}
+]
+
 marketSelection = finalDf[dataYear].STATFOR_Market_Segment.unique().tolist()
 
 app.layout = html.Div([
@@ -263,7 +268,8 @@ app.layout = html.Div([
                     html.Div([html.Button('Submit', style={"height": "auto", "margin-bottom": "20", "margin-top": "20"},
                                           id='simulationSubmitButton'), ]),
                     dcc.Store(id='ds_simdata'),
-                    dcc.Dropdown(id='simCountrySelection', multi=True, clearable=False,searchable=True),
+                    dcc.Dropdown(id='simCountrySelection', multi=False, clearable=False,searchable=True),html.P([]),
+                    dcc.Dropdown(id='simAnalysisOptions', options=simAnalysisOptionsDict, multi=False, value='SERIES', clearable=False),html.P([]),
                     dcc.Graph(id='simgraph'),
                     dash_table.DataTable(id="simtableres",
                                             data=None,
@@ -497,7 +503,7 @@ def calculateFit55Costs(blending, custCriteria, custField, custValue, emissionsP
     # 1st Level query ADEP/ADES filter
     # market segment filtered already in all_flights_df
     all_flights_df = finalDf[yearSelected]  # .query(allFlightsQuery)
-    all_flights_df = ft.CalculateSAFCost(all_flights_df, costOfSafFuelPerKg=safPrice, safBlendingMandate=blending / 100)
+    all_flights_df = ft.CalculateSAFCost(all_flights_df, costOfSafFuelPerKg=safPrice, safBlendingMandate=blending / 100,  jetPrice = jetPrice)
     all_flights_df = ft.CalculateFuelCost(all_flights_df, costOfJetFuelPerKg=jetPrice, safBlendingMandate=blending / 100)
     all_flights_df = ft.CalculateTotalFuelCost(all_flights_df)
     all_flights_df = ft.CalculateTaxCost(all_flights_df, FuelTaxRateEurosPerGJ=taxRate, blendingMandate=blending / 100)
@@ -983,35 +989,44 @@ def update_graphs(SelectedOptions, ds_cost,ds_gdp, ds_heatmap, groupSelection, C
 def simulate_Costs(rows, columns, nclicks):
     df = pd.DataFrame(rows, columns=[c['name'] for c in columns])
 
+    loaded = False
     if nclicks == None:
-        raise PreventUpdate
-
-    res= pd.DataFrame()
-
-    for index, row in df.iterrows():
-
-        _, _, cost_df, _, _, _, _,_ = calculate_costsNCB([3,6,9,12], [row['ADEP_REGION']], '', [], '', row['MARKET'].split(','), row['SAFPRICE'], row['BLENDING'], row['JETA1PRICE'],row['TAXRATE'],
-                        row['EMISSIONSPERC'], row['EUAPRICE'], 2019 , 'ADEP_COUNTRY',
-                        row['YEAR'], row['GDPGR'], 1, [row['RETLEG']], row['FLIGHTGR'], row['EMISSGR'], "", "", "")
+        res = pd.read_pickle('data/SimulationResults.pkl')
+        loaded = True
 
 
-        #cost_df = cost_df.set_index('ADEP_COUNTRY')
-        cost_df = cost_df[['SAF_COST_sum','ETS_COST_sum','TAX_COST_sum','FIT55_COST_sum']]
-        cost_df = pd.concat([cost_df], keys=[row['YEAR']], names=['Year'], axis=1)
-        res = pd.concat([res,cost_df], axis=1)
 
-    simCountrySelection= cost_df.index.tolist()
+
+    if not loaded:
+        res = pd.DataFrame()
+        for index, row in df.iterrows():
+
+            _, _, cost_df, _, _, _, _,_ = calculate_costsNCB([3,6,9,12], [row['ADEP_REGION']], '', [], '', row['MARKET'].split(','), row['SAFPRICE'], float(row['BLENDING']), float(row['JETA1PRICE']),float(row['TAXRATE']),
+                            float(row['EMISSIONSPERC']), float(row['EUAPRICE']), 2019 , 'ADEP_COUNTRY',
+                            int(row['YEAR']), float(row['GDPGR']), 1, [row['RETLEG']], float(row['FLIGHTGR']), float(row['EMISSGR']), "", "", "")
+
+
+            #cost_df = cost_df.set_index('ADEP_COUNTRY')
+            cost_df = cost_df[['SAF_COST_sum','ETS_COST_sum','TAX_COST_sum','FIT55_COST_sum']]
+            cost_df = pd.concat([cost_df], keys=[row['YEAR']], names=['Year'], axis=1)
+            res = pd.concat([res,cost_df], axis=1)
+
+    simCountrySelection= res.index.tolist()
 
     Seloptions = [{'label': i, 'value': i} for i in simCountrySelection]
-    Selvalue = [x['value'] for x in Seloptions]
+    if 'Selection' in simCountrySelection:
+        Selvalue='Selection'
+    else:
+        Selvalue = simCountrySelection[0]
 
     ds_simdata = res.reset_index().to_json(date_format='iso', orient='split')
 
-    filename='SimulationResults'
-    f = os.path.join('data', filename+'.pkl')
-    res.to_pickle(f)
-    f = os.path.join('data', filename+'.xlsx')
-    res.to_excel(f)
+    if not loaded:
+        filename='SimulationResults'
+        f = os.path.join('data', filename+'.pkl')
+        res.to_pickle(f)
+        f = os.path.join('data', filename+'.xlsx')
+        res.to_excel(f)
 
 
     return ds_simdata, Seloptions, Selvalue
@@ -1022,13 +1037,56 @@ def simulate_Costs(rows, columns, nclicks):
     dash.dependencies.Output('simtableres', 'data'),
     dash.dependencies.Output('simtableres', 'columns'),
     [dash.dependencies.Input("simCountrySelection", "value"),
-     dash.dependencies.State('ds_simdata', 'data')])
-def update_simgraphs(simCountrySelection, ds_simdata):
+     dash.dependencies.Input('simAnalysisOptions','value')])
+def update_simgraphs(simCountrySelection, simAnalysisOptions):
 
-    df = pd.read_json(ds_simdata, orient='split')
-    fig =  go.Figure(data=[go.Scatter(x=[], y=[])])
+    df = pd.read_pickle('data/SimulationResults.pkl')
+    #idx=pd.IndexSlice
+    #df = df.loc[[simCountrySelection], idx[:, simOptionsValues]]
+    df = df.loc[[simCountrySelection],:]
+    df = df.reset_index(drop=True)
+    df = df.T.unstack(level=-1)
+    df = df.droplevel(level=0, axis=1)
+    df = df.sort_index()
+
+    if simAnalysisOptions == 'CUMULATIVE':
+        df=df.cumsum()
+
+    graphdata = [
+        go.Scatter(name='SAF',
+               x=df.index,
+               y=df['SAF_COST_sum'],
+               mode='lines+markers'
+               ),
+        go.Scatter(name='TAX',
+               x=df.index,
+               y=df['TAX_COST_sum'],
+               mode='lines+markers'
+               ),
+        go.Scatter(name='ETS',
+               x=df.index,
+               y=df['ETS_COST_sum'],
+               mode='lines+markers'
+               ),
+        go.Scatter(name='Total cost of all Measures',
+               x=df.index,
+               y=df['FIT55_COST_sum'],
+               mode='lines+markers'
+               )
+    ]
+
+    layout = go.Layout(title=simAnalysisOptions + ' Cost of proposals across time for ' + simCountrySelection,
+                       yaxis=dict(title='USD'),
+                       legend=dict(yanchor="top", y=0.99, xanchor="right", x=1.21)
+                       )
+
+    fig = go.Figure(data=graphdata, layout=layout)
+    fig.update_layout(
+                           height=1000,
+                           xaxis={"tickangle": 45}, )
 
 
+    #df.loc[[simCountrySelection], idx[:, simOptionsValues]]
     #update table
     datatable= df.reset_index()
     _col=[{"name": i, "id": i} for i in datatable.columns]
@@ -1142,5 +1200,5 @@ app.index_string = """<!DOCTYPE html>
 </html>"""
 
 if __name__ == '__main__':
-   app.run_server(debug=True)
-   #application.run()
+   #app.run_server(debug=True)
+   application.run()
