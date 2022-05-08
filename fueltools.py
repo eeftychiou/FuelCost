@@ -179,8 +179,8 @@ def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=
     # *************************************************** #
 
     # Tax only for intra EU flights so ADEP and ADES must be Y
-    subSet = '(ADEP_ETD=="Y" & ADES_ETD=="Y" & STATFOR_Market_Segment!="All-Cargo")'
-    flights_df = flights_df.assign(TAX_COST= 0.0)
+    subSet = '(ADEP_ETD=="Y" & ADES_ETD=="Y" & STATFOR_Market_Segment!="All-Cargo & STATFOR_Market_Segment!="Business Aviation")'
+    flights_df = flights_df.assign(TAX_COST = 0.0)
     flights_df.loc[flights_df.eval(subSet),'TAX_COST'] = flights_df.query(subSet)['FUEL'] * (1-blendingMandate) * FuelTaxRateUsdPerKg
 
     return flights_df
