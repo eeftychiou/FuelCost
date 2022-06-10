@@ -155,7 +155,8 @@ app.layout = html.Div([
                 html.Div([html.P('ETS Price(EURO/tn) ', style={"height": "auto", "margin-bottom": "auto"}),
                           dcc.Input(id="emissionsPrice", type="number", placeholder=80, min=0, max=1000, value=80,debounce=True ), ]),
                 html.Div([html.P('Emissions (%)', style={"height": "auto", "margin-bottom": "auto"}),
-                          dcc.Input(id="emissionsPercent", type="number", placeholder=55, min=0, max=100, step=1, value=55, debounce=True), ]),
+                          dcc.Input(id="emissionsPercent", type="number", placeholder=55, min=0, max=100, step=1, value=55, debounce=True),
+                          dcc.Checklist(id="extraEUETS", options=[{'label': 'Include Extra EU Flights in ETS', 'value': 'Yes'}], value=[]),]),
                 html.Div([html.P('Projection Year', style={"height": "auto", "margin-bottom": "auto"}),
                           dcc.Input(id="yearGDP", type="number", placeholder=2025, min=2021, max=2080, step=1, value=2025,debounce=True ), ]),
                 html.Div([html.P('GDP Growth(%)', style={"height": "auto", "margin-bottom": "auto"}),
@@ -317,6 +318,7 @@ application = app.server
      dash.dependencies.State('taxRate', "value"),
      dash.dependencies.State('emissionsPercent', 'value'),
      dash.dependencies.State('emissionsPrice', 'value'),
+     dash.dependencies.State('extraEUETS', 'value'),
      dash.dependencies.State('DatasetSelection', 'value'),
      dash.dependencies.State('groupSelection', 'value'),
      dash.dependencies.State('yearGDP', 'value'),
@@ -331,7 +333,7 @@ application = app.server
 
      ])
 def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPrice, blending, jetPrice, taxRate,
-                 emissionsPercent, emissionsPrice, yearSelected, groupSel,
+                 emissionsPercent, emissionsPrice,extraEUETS, yearSelected, groupSel,
                  yearGDP, gdpGrowth, nclicks, returnLeg, flightGrowth, emissionsGrowth, custCriteria, custField, custValue):
 
 
@@ -372,7 +374,7 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
         dfquery = '(' + fromQuery + ' | ' + fromQuery.replace('ADEP', 'ADES') + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
         allFlightsQuery = '(' + fromQuery + ' | ' + fromQuery.replace('ADEP', 'ADES') + ')' + ' & ' + 'STATFOR_Market_Segment in @market'
 
-    all_flights_df = calculateFit55Costs(blending, custCriteria, custField, custValue, emissionsPercent, emissionsPrice, jetPrice, safPrice, taxRate, yearSelected)
+    all_flights_df = calculateFit55Costs(blending, custCriteria, custField, custValue, emissionsPercent, emissionsPrice,extraEUETS, jetPrice, safPrice, taxRate, yearSelected)
 
     all_flights_df = all_flights_df.query(dfquery)
 
@@ -380,7 +382,7 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
 
     dfRatio= ft.getDFRatio(set(monthSel))
 
-    heatmap_df  = ft.calculatePairs(dfRatio, endSummerIATA, groupSel, all_flights_df, startSummerIATA)
+    heatmap_df = ft.calculatePairs(dfRatio, endSummerIATA, groupSel, all_flights_df, startSummerIATA)
 
 
     #GDP Calculations
@@ -499,7 +501,7 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
     return Seloptions, Selvalue, ds_cost, ds_gdp, ds_heatmap, toSeloptions, toSelvalue,compareOptiondisabled
 
 
-def calculateFit55Costs(blending, custCriteria, custField, custValue, emissionsPercent, emissionsPrice, jetPrice, safPrice, taxRate, yearSelected):
+def calculateFit55Costs(blending, custCriteria, custField, custValue, emissionsPercent, emissionsPrice,extraEUETS, jetPrice, safPrice, taxRate, yearSelected):
     # 1st Level query ADEP/ADES filter
     # market segment filtered already in all_flights_df
     all_flights_df = finalDf[yearSelected]  # .query(allFlightsQuery)
@@ -507,7 +509,7 @@ def calculateFit55Costs(blending, custCriteria, custField, custValue, emissionsP
     all_flights_df = ft.CalculateFuelCost(all_flights_df, costOfJetFuelPerKg=jetPrice, safBlendingMandate=blending / 100)
     all_flights_df = ft.CalculateTotalFuelCost(all_flights_df)
     all_flights_df = ft.CalculateTaxCost(all_flights_df, FuelTaxRateEurosPerGJ=taxRate, blendingMandate=blending / 100)
-    all_flights_df = ft.CalculateETSCost(all_flights_df, safBlendingMandate=blending / 100, ETSCostpertonne=emissionsPrice, ETSpercentage=emissionsPercent)
+    all_flights_df = ft.CalculateETSCost(all_flights_df, safBlendingMandate=blending / 100, ETSCostpertonne=emissionsPrice, ETSpercentage=emissionsPercent, extraEUETS=extraEUETS)
     all_flights_df['FIT55_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST']
     all_flights_df['TOTAL_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST'] + all_flights_df['FUEL_COST']
     all_flights_df = ft.calculateCustom(all_flights_df, custCriteria, custField, custValue)
@@ -1001,7 +1003,7 @@ def simulate_Costs(rows, columns, nclicks):
         res = pd.DataFrame()
         for index, row in df.iterrows():
 
-            _, _, cost_df, _, _, _, _,_ = calculate_costsNCB([3,6,9,12], [row['ADEP_REGION']], '', [], '', row['MARKET'].split(','), row['SAFPRICE'], float(row['BLENDING']), float(row['JETA1PRICE']),float(row['TAXRATE']),
+            _, _, cost_df, _, _, _, _,_ = calculate_costsNCB([3,6,9,12], [row['ADEP_REGION']], '', [], '', row['MARKET'].split(','), float(row['SAFPRICE']), float(row['BLENDING']), float(row['JETA1PRICE']),float(row['TAXRATE']),
                             float(row['EMISSIONSPERC']), float(row['EUAPRICE']), 2019 , 'ADEP_COUNTRY',
                             int(row['YEAR']), float(row['GDPGR']), 1, [row['RETLEG']], float(row['FLIGHTGR']), float(row['EMISSGR']), "", "", "")
 

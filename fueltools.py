@@ -179,18 +179,24 @@ def CalculateTaxCost(flights_df, FuelTaxRateEurosPerGJ = 0.00 , blendingMandate=
     # *************************************************** #
 
     # Tax only for intra EU flights so ADEP and ADES must be Y
-    subSet = '(ADEP_ETD=="Y" & ADES_ETD=="Y" & STATFOR_Market_Segment!="All-Cargo & STATFOR_Market_Segment!="Business Aviation")'
+    subSet = '(ADEP_ETD=="Y" & ADES_ETD=="Y" & STATFOR_Market_Segment!="All-Cargo")' # & STATFOR_Market_Segment!="Business Aviation")'
     flights_df = flights_df.assign(TAX_COST = 0.0)
     flights_df.loc[flights_df.eval(subSet),'TAX_COST'] = flights_df.query(subSet)['FUEL'] * (1-blendingMandate) * FuelTaxRateUsdPerKg
 
     return flights_df
 
-def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, ETSpercentage = 50 ):
+def CalculateETSCost(flights_df, safBlendingMandate=0.02, ETSCostpertonne = 62, ETSpercentage = 50, extraEUETS='No'):
 
     ETSPricePerKg = ETSCostpertonne/1000 * EurosToUsdExchangeRate
 
-    # ETS only for intra EU flights so ADEP and ADES must be Y
-    ETSsubSet = '(ADEP_ETS=="Y" & ADES_ETS=="Y")'
+    if 'Yes' in extraEUETS:
+        ETSsubSet = '(ADEP_ETS=="Y")'
+    else:
+        # ETS only for intra EU flights so ADEP and ADES must be Y
+        ETSsubSet = '(ADEP_ETS=="Y" & ADES_ETS=="Y")'
+
+
+
     flights_df = flights_df.assign(ETS_COST = 0.0 )
     flights_df.loc[flights_df.eval(ETSsubSet),'ETS_COST'] = flights_df.query(ETSsubSet)['FUEL'] * 3.15 * (1-safBlendingMandate) * ETSPricePerKg * ETSpercentage/100
 
