@@ -444,7 +444,7 @@ def Newcalculate_group_aggregates(dfRatio, emissionsGrowth, endSummerIATA, fligh
         Annual.loc[:, ~Annual.columns.str.contains('mean|std|%|COUNTRY|EMISSIONS|Actual')] = Annual.loc[:, ~Annual.columns.str.contains('mean|std|%|COUNTRY|EMISSIONS|Actual')] * (1 + flightGrowth / 100) ** (yearGDP - 2024)
     # Calculate Emissions Growth
     Annual['EMISSIONS_sum'] = Annual["EMISSIONS_sum"] * (1 + emissionsGrowth / 100) ** (yearGDP - 2024)
-    Annual['EMISSIONS_Percent'] = (Annual['EMISSIONS_sum'] /2.0) / Annual.loc[tag, 'EMISSIONS_sum'] * 100
+    Annual['EMISSIONS_Percent'] = (Annual['EMISSIONS_sum'] ) / Annual.loc[tag, 'EMISSIONS_sum'] * 100
     # prepare dataframe for presentation
     #per_group_annual = per_group_annual.reset_index()
     Annual = Annual.sort_values(by=['SAF_COST_mean'], ascending=False)
