@@ -882,7 +882,7 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df, yearP
 
         gdp_df = gdp_df.sort_values(by=['FIT55_GDP_RATIO'], ascending=False)
 
-        chartBarText = cost_df[['SAF_COST_sum', 'ETS_COST_sum', 'TAX_COST_sum','FIT55_COST_sum']].copy()
+        chartBarText = gdp_df[['SAF_COST_sum', 'ETS_COST_sum', 'TAX_COST_sum','FIT55_COST_sum']].copy()
         chartBarText= (chartBarText / 1000000).round(2)
 
         chartBarText['SAF_COST_sum'] = chartBarText['SAF_COST_sum'].astype('str') + ' MM USD'
