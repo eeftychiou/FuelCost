@@ -73,6 +73,28 @@ def pre_process():
 
                 flights_df=CreateCategories(flights_df)
 
+                #Reduce memory Usage
+                flights_df['Actual_Distance_Flown'] = flights_df['Actual_Distance_Flown'].astype('float16')
+                flights_df['CO2_COEFF'] = flights_df['CO2_COEFF'].astype('float16')
+                flights_df['FUEL_TOT'] = flights_df['FUEL_TOT'].astype('float16')
+                flights_df['FUEL_TOT_MARG_RATE'] = flights_df['FUEL_TOT_MARG_RATE'].astype('float16')
+                flights_df['CORR_FACTOR'] = flights_df['CORR_FACTOR'].astype('float16')
+                flights_df['FUEL_TOT'] = flights_df['FUEL_TOT'].astype('float16')
+
+                flights_df['ADEP_EUROCONTROL_REGION'] = flights_df['ADEP_EUROCONTROL_REGION'].astype('category')
+                flights_df['ADEP_Region'] = flights_df['ADEP_Region'].astype('category')
+                flights_df['ADEP_CUSTOM'] = flights_df['ADEP_CUSTOM'].astype('category')
+                flights_df['ADEP_EU'] = flights_df['ADEP_EU'].astype('category')
+                flights_df['ADEP_EEA'] = flights_df['ADEP_EEA'].astype('category')
+
+                flights_df['ADES_Region'] = flights_df['ADES_Region'].astype('category')
+                flights_df['ADES_EUROCONTROL_REGION'] = flights_df['ADES_EUROCONTROL_REGION'].astype('category')
+                flights_df['ADES_CUSTOM'] = flights_df['ADES_CUSTOM'].astype('category')
+                flights_df['ADES_EU'] = flights_df['ADES_EU'].astype('category')
+                flights_df['ADES_EEA'] = flights_df['ADES_EEA'].astype('category')
+
+
+
                 flights_df.sort_values(by=['ECTRL_ID'], inplace=True)
                 pklfilename = filename + '.raw.pkl'
                 print('Saving to pickle CSV', pklfilename)
@@ -143,9 +165,15 @@ def loadDefaultDataset(year=None, month=None):
     for colName in  ['ADEP', 'ADES', 'AC_Type', 'AC_Operator', 'STATFOR_Market_Segment', 'ADEP_PREFIX', 'ADES_PREFIX', 'ADEP_COUNTRY', 'ADEP_EU_EEA_EFTA', 'ADEP_ECAC', 'ADEP_OUTERMOST_REGIONS', 'ADEP_EU_EEA_EFTA_UK', 'ADEP_OUTER_CLOSE', 'ADES_COUNTRY', 'ADES_EU_EEA_EFTA', 'ADES_ECAC', 'ADES_OUTERMOST_REGIONS', 'ADES_EU_EEA_EFTA_UK', 'ADES_OUTER_CLOSE']:
         flights_df[colName] = flights_df[colName].astype('category')
 
+    print("======= START ================================================================")
     print("Loaded pickles for year ", year)
     print("Dataframe Shape:", flights_df.shape)
     print("Dataframe head", flights_df.head())
+
+    print("Dataframe Info()", flights_df.info())
+
+    print("Dataframe memory_usage()", flights_df.memory_usage())
+    print("========= END ================================================================")
 
 
 

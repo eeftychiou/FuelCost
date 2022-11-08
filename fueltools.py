@@ -97,6 +97,43 @@ def loadPickle(year, month):
                 flights_df_list.append(temp_df)
 
     flights_df = pd.concat(flights_df_list, ignore_index=True)
+
+    # Reduce memory Usage
+    flights_df['Actual_Distance_Flown'] = flights_df['Actual_Distance_Flown'].astype('float16')
+    flights_df['CO2_COEFF'] = flights_df['CO2_COEFF'].astype('float16')
+    flights_df['FUEL_TOT'] = flights_df['FUEL_TOT'].astype('float16')
+    flights_df['FUEL_TOT_MARG_RATE'] = flights_df['FUEL_TOT_MARG_RATE'].astype('float16')
+    flights_df['CORR_FACTOR'] = flights_df['CORR_FACTOR'].astype('float16')
+    flights_df['FUEL_TOT'] = flights_df['FUEL_TOT'].astype('float16')
+
+    flights_df['ADEP_EUROCONTROL_REGION'] = flights_df['ADEP_EUROCONTROL_REGION'].astype('category')
+    flights_df['ADEP_Region'] = flights_df['ADEP_Region'].astype('category')
+    flights_df['ADEP_CUSTOM'] = flights_df['ADEP_CUSTOM'].astype('category')
+    flights_df['ADEP_EU'] = flights_df['ADEP_EU'].astype('category')
+    flights_df['ADEP_EEA'] = flights_df['ADEP_EEA'].astype('category')
+
+    flights_df['ADES_Region'] = flights_df['ADES_Region'].astype('category')
+    flights_df['ADES_EUROCONTROL_REGION'] = flights_df['ADES_EUROCONTROL_REGION'].astype('category')
+    flights_df['ADES_CUSTOM'] = flights_df['ADES_CUSTOM'].astype('category')
+    flights_df['ADES_EU'] = flights_df['ADES_EU'].astype('category')
+
+    flights_df['ADES_OUTER_CLOSE'] = flights_df['ADES_OUTER_CLOSE'].astype('category')
+    flights_df['ADES_OUTERMOST_REGIONS'] = flights_df['ADES_OUTERMOST_REGIONS'].astype('category')
+    flights_df['ADES_COUNTRY'] = flights_df['ADES_COUNTRY'].astype('category')
+    flights_df['ADEP_OUTER_CLOSE'] = flights_df['ADEP_OUTER_CLOSE'].astype('category')
+    flights_df['ADEP_OUTERMOST_REGIONS'] = flights_df['ADEP_OUTERMOST_REGIONS'].astype('category')
+
+    flights_df['ADEP_COUNTRY'] = flights_df['ADEP_COUNTRY'].astype('category')
+    flights_df['ADES_PREFIX'] = flights_df['ADES_PREFIX'].astype('category')
+    flights_df['ADEP_PREFIX'] = flights_df['ADEP_PREFIX'].astype('category')
+
+    flights_df['STATFOR_Market_Segment'] = flights_df['STATFOR_Market_Segment'].astype('category')
+    flights_df['AC_Operator'] = flights_df['AC_Operator'].astype('category')
+    flights_df['AC_Type'] = flights_df['AC_Type'].astype('category')
+    flights_df['ADES'] = flights_df['ADES'].astype('category')
+    flights_df['ADEP'] = flights_df['ADEP'].astype('category')
+
+
     return flights_df
 
 
@@ -230,7 +267,13 @@ def calculateCustom(all_flights_df, custCriteria, custField, custValue):
 
     # (ADEP_COUNTRY=="Cyprus" & ADES_COUNTRY=="Greece") | (ADEP_COUNTRY=="Greece" & ADES_COUNTRY=="Cyprus")    ETS_COST
     if custCriteria:
-        all_flights_df.loc[all_flights_df.eval(custCriteria), custField] = float(custValue)
+        #custValue can be an expression or a value
+        try:
+            all_flights_df.loc[all_flights_df.eval(custCriteria), custField] = float(custValue)
+        except ValueError:
+            all_flights_df.loc[all_flights_df.eval(custCriteria), custField] =  all_flights_df.query(custCriteria).eval(custField+custValue)
+
+
         all_flights_df = CalculateTotalFuelCost(all_flights_df)
         all_flights_df['FIT55_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST']
         all_flights_df['TOTAL_COST'] = all_flights_df['SAF_COST'] + all_flights_df['TAX_COST'] + all_flights_df['ETS_COST'] + all_flights_df['FUEL_COST']
