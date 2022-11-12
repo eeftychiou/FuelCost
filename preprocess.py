@@ -74,12 +74,12 @@ def pre_process():
                 flights_df=CreateCategories(flights_df)
 
                 #Reduce memory Usage
-                flights_df['Actual_Distance_Flown'] = flights_df['Actual_Distance_Flown'].astype('float16')
+                flights_df['Actual_Distance_Flown'] = flights_df['Actual_Distance_Flown'].astype('float32')
                 flights_df['CO2_COEFF'] = flights_df['CO2_COEFF'].astype('float16')
                 flights_df['FUEL_TOT'] = flights_df['FUEL_TOT'].astype('float16')
                 flights_df['FUEL_TOT_MARG_RATE'] = flights_df['FUEL_TOT_MARG_RATE'].astype('float16')
                 flights_df['CORR_FACTOR'] = flights_df['CORR_FACTOR'].astype('float16')
-                flights_df['FUEL_TOT'] = flights_df['FUEL_TOT'].astype('float16')
+                flights_df['FUEL_TOT'] = flights_df['FUEL_TOT'].astype('float32')
 
                 flights_df['ADEP_EUROCONTROL_REGION'] = flights_df['ADEP_EUROCONTROL_REGION'].astype('category')
                 flights_df['ADEP_Region'] = flights_df['ADEP_Region'].astype('category')

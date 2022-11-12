@@ -388,15 +388,15 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
     #GDP Calculations
     gdpPerCountry = pd.read_csv('data/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2916952.csv', usecols=['COUNTRY', '2016', '2017', '2018', '2019', '2020'], index_col='COUNTRY')
     popPerCountry = pd.read_csv('data/API_SP.POP.TOTL_DS2_en_csv_v2_4218816.csv', usecols=['COUNTRY', '2016', '2017', '2018', '2019', '2020'], index_col='COUNTRY')
-    gdpPPPerCountry = pd.read_csv('data/API_NY.GDP.PCAP.PP.CD_DS2_en_csv_v2_4150885.csv',  usecols=['COUNTRY', '2016', '2017', '2018', '2019', '2020'], index_col='COUNTRY')
+    # gdpPPPerCountry = pd.read_csv('data/API_NY.GDP.PCAP.PP.CD_DS2_en_csv_v2_4150885.csv',  usecols=['COUNTRY', '2016', '2017', '2018', '2019', '2020'], index_col='COUNTRY')
 
     #calculate GDP Growth
     gdpPerCountry[yearGDP] = gdpPerCountry['2020'] * (1+ gdpGrowth/100)**(yearGDP-2020)
     popPerCountry[yearGDP] = popPerCountry['2020'] * (1 + 0 / 100) ** (yearGDP - 2020)
-    gdpPPPerCountry[yearGDP] = gdpPPPerCountry['2020'] * (1 + gdpGrowth / 100) ** (yearGDP - 2020)
+    # gdpPPPerCountry[yearGDP] = gdpPPPerCountry['2020'] * (1 + gdpGrowth / 100) ** (yearGDP - 2020)
 
 
-    gdpPPPerCountry = gdpPPPerCountry[['2016', '2017', '2018', '2019', '2020', yearGDP]].add_suffix('_GDPPP')
+    # gdpPPPerCountry = gdpPPPerCountry[['2016', '2017', '2018', '2019', '2020', yearGDP]].add_suffix('_GDPPP')
 
 
     compareOptiondisabled = True
@@ -439,16 +439,16 @@ def calculate_costs(monthSel, fromSel,fromSelAdd, toSel,toSelAdd, market, safPri
         per_group_annual_gdp['TAX_POP_RATIO'] = (per_group_annual_gdp['TAX_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_POP'])
 
         #Impact per GDP PP
-        gdpPPPerCountry.loc["Selection"] = gdpPPPerCountry[gdpPPPerCountry.index.isin(countryList)].sum().tolist()
-        countryList.add("Selection")
-        gdpPPPerCountry = gdpPPPerCountry.loc[gdpPPPerCountry.index.isin(countryList)]
-        per_group_annual_gdp = per_group_annual_gdp.join(gdpPPPerCountry, how='inner', rsuffix='_GDPPP' )
-
-        per_group_annual_gdp['TOTAL_GDPPP_RATIO'] = (per_group_annual_gdp['TOTAL_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
-        per_group_annual_gdp['FIT55_GDPPP_RATIO'] = (per_group_annual_gdp['FIT55_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
-        per_group_annual_gdp['SAF_GDPPP_RATIO'] = (per_group_annual_gdp['SAF_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
-        per_group_annual_gdp['ETS_GDPPP_RATIO'] = (per_group_annual_gdp['ETS_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
-        per_group_annual_gdp['TAX_GDPPP_RATIO'] = (per_group_annual_gdp['TAX_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
+        # gdpPPPerCountry.loc["Selection"] = gdpPPPerCountry[gdpPPPerCountry.index.isin(countryList)].sum().tolist()
+        # countryList.add("Selection")
+        # gdpPPPerCountry = gdpPPPerCountry.loc[gdpPPPerCountry.index.isin(countryList)]
+        # # per_group_annual_gdp = per_group_annual_gdp.join(gdpPPPerCountry, how='inner', rsuffix='_GDPPP' )
+        #
+        # per_group_annual_gdp['TOTAL_GDPPP_RATIO'] = (per_group_annual_gdp['TOTAL_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
+        # per_group_annual_gdp['FIT55_GDPPP_RATIO'] = (per_group_annual_gdp['FIT55_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
+        # per_group_annual_gdp['SAF_GDPPP_RATIO'] = (per_group_annual_gdp['SAF_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
+        # per_group_annual_gdp['ETS_GDPPP_RATIO'] = (per_group_annual_gdp['ETS_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
+        # per_group_annual_gdp['TAX_GDPPP_RATIO'] = (per_group_annual_gdp['TAX_COST_sum'] / per_group_annual_gdp[str(yearGDP)+'_GDPPP'])
 
         # return options filter out less than 365 flights either per MS, airport or airline
         fromrowNames = per_group_annual.index.get_level_values(0).unique().tolist()
@@ -931,6 +931,15 @@ def update_per_ms(SelectedOptions, gdp_df, groupSel, cost_df,  heatmap_df, yearP
                    offsetgroup=1,
                    yaxis = 'y1'
                    ),
+            go.Bar(name='Total GDP PP Ratio of Measures',
+                   x=gdp_df.index,
+                   y=gdp_df['TOTAL_POP_RATIO'], visible='legendonly',
+                   width=0.5,
+                   offset=0.0,
+                   base=0,
+                   offsetgroup=1,
+                   yaxis='y1'
+                   ),
             go.Bar(name='Total GDP Ratio of Fit55 Measures',
                    x=gdp_df.index,
                    y=gdp_df['FIT55_GDP_RATIO'], visible='legendonly',
@@ -1266,5 +1275,5 @@ app.index_string = """<!DOCTYPE html>
 </html>"""
 
 if __name__ == '__main__':
-   app.run_server(debug=True)
-   #application.run()
+   #app.run_server(debug=True)
+   application.run()

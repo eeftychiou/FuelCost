@@ -99,7 +99,7 @@ def loadPickle(year, month):
     flights_df = pd.concat(flights_df_list, ignore_index=True)
 
     # Reduce memory Usage
-    flights_df['Actual_Distance_Flown'] = flights_df['Actual_Distance_Flown'].astype('float16')
+    #flights_df['Actual_Distance_Flown'] = flights_df['Actual_Distance_Flown'].astype('float32')
     flights_df['CO2_COEFF'] = flights_df['CO2_COEFF'].astype('float16')
     flights_df['FUEL_TOT'] = flights_df['FUEL_TOT'].astype('float16')
     flights_df['FUEL_TOT_MARG_RATE'] = flights_df['FUEL_TOT_MARG_RATE'].astype('float16')
